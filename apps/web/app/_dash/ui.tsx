@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-const PLATFORM_LABEL: Record<string, string> = { bluesky: "Bluesky", x: "X", linkedin: "LinkedIn" };
+const PLATFORM_LABEL: Record<string, string> = { bluesky: "Bluesky", x: "X", linkedin: "LinkedIn", instagram: "Instagram" };
 export const platformLabel = (p: string | null | undefined) => (p ? (PLATFORM_LABEL[p] ?? p) : null);
 
 const TYPE_LABEL: Record<string, string> = {
@@ -15,6 +15,18 @@ const TYPE_LABEL: Record<string, string> = {
   other: "Update",
 };
 export const typeLabel = (t: string) => TYPE_LABEL[t] ?? "Update";
+
+/** Newspaper desks: event types grouped into front-page sections, in print order. */
+export const SECTIONS = [
+  { id: "moves", label: "Moves & Launches", types: ["job_change", "move", "launch"] },
+  { id: "asks", label: "Asking Around", types: ["ask"] },
+  { id: "out", label: "Out & About", types: ["travel", "event"] },
+  { id: "milestones", label: "Milestones", types: ["milestone"] },
+  { id: "minds", label: "On Their Minds", types: ["opinion", "other"] },
+] as const;
+
+/** Which desk a story runs under (defaults to the catch-all "On Their Minds"). */
+export const sectionFor = (type: string) => SECTIONS.find((s) => (s.types as readonly string[]).includes(type))?.id ?? "minds";
 
 /** "2026-10-22" → "2d ago" */
 export function relDay(isoDate: string) {

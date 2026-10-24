@@ -137,10 +137,20 @@ export async function collectInstagramStories(
       .map((it): RawPost | null => {
         const id = it.pk != null ? String(it.pk) : it.code;
         if (!id) return null;
+        // Story location sticker = a temporary / current location (where they are right now) —
+        // a strong serendipity signal. Fold it into the text so extraction picks it up as a place.
+        const anyIt = it as Record<string, any>;
+        const loc: string | undefined =
+          anyIt.story_locations?.[0]?.location?.name ??
+          anyIt.story_locations?.[0]?.location?.short_name ??
+          anyIt.location?.name ??
+          anyIt.location?.city;
+        const caption = it.caption?.text?.trim() ?? "";
+        const text = [loc ? `📍 currently at ${loc} (story)` : "", caption].filter(Boolean).join(" — ");
         return {
           nativeId: `story:${id}`,
           url: `https://www.instagram.com/stories/${username}/${id}/`,
-          text: it.caption?.text?.trim() ?? "",
+          text,
           postedAt: (it.taken_at ?? 0) * 1000,
           raw: it,
         };

@@ -13,7 +13,19 @@ import { requireLogin } from "./session";
 import type { Collected, Platform, RawPost, Snapshot } from "./types";
 
 const LOOKBACK = Number(process.env.LOOKBACK_DAYS ?? 14) * DAY;
+// A freshly-added connection has no history here yet, so we backfill a full week of their activity
+// rather than only picking up what's appeared since they were added (which, for someone added today,
+// is nearly nothing). Established people use the standard window. This holds even if LOOKBACK is later
+// shortened for fast incremental scans.
+const FRESH_BACKFILL = Number(process.env.FRESH_BACKFILL_DAYS ?? 7) * DAY;
+const FRESH_WINDOW = Number(process.env.FRESH_WINDOW_DAYS ?? 2) * DAY;
 const LINKEDIN_CAP = Number(process.env.LINKEDIN_CAP ?? 25);
+
+/** How far back to scrape one identity: ≥7 days for recently-added connections, else the standard window. */
+function sinceFor(importedAt: number | null) {
+  const fresh = importedAt != null && Date.now() - importedAt < FRESH_WINDOW;
+  return Date.now() - (fresh ? Math.max(FRESH_BACKFILL, LOOKBACK) : LOOKBACK);
+}
 export const ALL_PLATFORMS: Platform[] = ["bluesky", "x", "linkedin", "instagram"];
 
 async function savePosts(personId: number, platform: Platform, posts: RawPost[]) {
@@ -43,7 +55,6 @@ async function saveSnapshot(personId: number, platform: Platform, snap: Snapshot
 export async function collect(platforms = ALL_PLATFORMS, progress: (m: string) => void = console.log) {
   if (process.env.REPLAY) return replay();
 
-  const since = Date.now() - LOOKBACK;
   const needsBrowser = platforms.some((p) => p !== "bluesky");
   let ctx: BrowserContext | undefined;
   const stats: Record<string, { people: number; newPosts: number; errors: number; skipped?: string }> = {};
@@ -65,6 +76,7 @@ export async function collect(platforms = ALL_PLATFORMS, progress: (m: string) =
 
     for (const id of ids) {
       try {
+        const since = sinceFor(id.importedAt);
         let result: Collected;
         if (platform === "bluesky") result = await collectBluesky(id.handle, since);
         else if (platform === "x") result = await collectX(ctx!, id.handle, since);

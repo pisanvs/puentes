@@ -23,6 +23,17 @@ const extraction = z.object({
   offers: z.array(z.string()).describe("Things the author can give: hiring, investing, expertise, a spare ticket."),
 });
 
+/** Append one row to the observation log so the event log / "Today" edition has a timeline. */
+async function logEvent(
+  kind: (typeof schema.observations.$inferInsert)["kind"],
+  personId: number,
+  source: string,
+  occurredAt: number,
+  payload: unknown,
+) {
+  await db.insert(schema.observations).values({ kind, personId, source, occurredAt, payload });
+}
+
 /** Turn unenriched posts into events, and LinkedIn snapshot changes into job_change/move events. */
 export async function enrich() {
   const pending = await db
@@ -48,15 +59,24 @@ export async function enrich() {
       prompt: `Extract the life update from this ${post.platform} post by ${name}, posted ${new Date(post.postedAt).toISOString().slice(0, 10)}.\n\n${post.text}`,
     });
     if (output.relevant) {
-      await db.insert(schema.events).values({
-        personId: post.personId,
-        postId: post.id,
+      const [ev] = await db
+        .insert(schema.events)
+        .values({
+          personId: post.personId,
+          postId: post.id,
+          type: output.type,
+          summary: output.summary,
+          entities: output.entities,
+          asks: output.asks,
+          offers: output.offers,
+          occurredAt: post.postedAt,
+        })
+        .returning({ id: schema.events.id });
+      // Spine of the event log / newspaper: one human-readable row per surfaced signal.
+      await logEvent("post_seen", post.personId, post.platform, post.postedAt, {
+        eventId: ev.id,
         type: output.type,
         summary: output.summary,
-        entities: output.entities,
-        asks: output.asks,
-        offers: output.offers,
-        occurredAt: post.postedAt,
       });
       created++;
     }
@@ -106,7 +126,11 @@ async function diffSnapshots() {
       });
     }
 
-    if (changes.length) await db.insert(schema.events).values(changes);
+    if (changes.length) {
+      await db.insert(schema.events).values(changes);
+      for (const c of changes)
+        await logEvent(c.type === "move" ? "moved" : "job_change", snap.personId, snap.platform, snap.takenAt, { type: c.type, summary: c.summary });
+    }
     created += changes.length;
     await db.update(schema.snapshots).set({ diffedAt: Date.now() }).where(eq(schema.snapshots.id, snap.id));
   }

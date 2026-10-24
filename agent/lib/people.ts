@@ -62,6 +62,7 @@ export async function identitiesFor(platform: Platform) {
       personId: schema.identities.personId,
       handle: schema.identities.handle,
       name: schema.people.name,
+      importedAt: schema.identities.importedAt,
     })
     .from(schema.identities)
     .innerJoin(schema.people, eq(schema.people.id, schema.identities.personId))

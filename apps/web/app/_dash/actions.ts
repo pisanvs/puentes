@@ -11,6 +11,7 @@ import {
   setNudgeStatus,
   setObjective,
   setInnerCircle,
+  setPinned,
   addWarmthBoost,
   snoozeNudge,
 } from "@agent/lib/queries";
@@ -105,8 +106,8 @@ export async function queryGraph(query: string, kind?: EntityKind) {
   return peopleAt(query, kind, 80);
 }
 
-export async function answerMetInPerson(personId: number, answer: "met" | "online" | "skip") {
-  await answerMet(personId, answer);
+export async function answerMetInPerson(personId: number, answer: "met" | "online" | "skip", where?: string) {
+  await answerMet(personId, answer, where);
   refreshAll();
 }
 
@@ -116,6 +117,11 @@ export async function mapMoreNetwork(count: number) {
 
 export async function track(personId: number, tracked: boolean) {
   await setInnerCircle(personId, tracked);
+  refreshAll();
+}
+
+export async function togglePin(personId: number, pinned: boolean) {
+  await setPinned(personId, pinned);
   refreshAll();
 }
 

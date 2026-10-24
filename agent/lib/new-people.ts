@@ -5,7 +5,7 @@ import { addNote } from "./queries";
 import { DAY } from "./util";
 import { rawForNorm, warmthNorm } from "./warmth-curve";
 
-const { people, identities } = schema;
+const { people, identities, observations, entities } = schema;
 const CACHE = ".puentes/cache/new-people.json";
 const CACHE_TTL = 60 * 60 * 1000; // recompute at most hourly
 const WINDOW = DAY; // "new" = added in the last day
@@ -70,8 +70,37 @@ export async function newPeople(limit = 30) {
   };
 }
 
-/** Answer the "did you meet them?" prompt. Meeting IRL warms them up and leaves a note. */
-export async function answerMet(personId: number, answer: Answer) {
+/**
+ * Likely places you'd have met someone, for the "where did you meet?" autofill: the spots you've
+ * logged meetings at recently (newest first), then cities people in your network are based in.
+ */
+export async function metPlaces(limit = 12): Promise<string[]> {
+  const recent = await db
+    .select({ payload: observations.payload })
+    .from(observations)
+    .where(eq(observations.kind, "contact_logged"))
+    .orderBy(desc(observations.observedAt))
+    .limit(40);
+  const recentPlaces = recent.map((r) => (r.payload as { place?: string } | null)?.place).filter((x): x is string => !!x);
+  const placeEnts = await db.select({ name: entities.name }).from(entities).where(eq(entities.kind, "place")).limit(30);
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of [...recentPlaces, ...placeEnts.map((e) => e.name)]) {
+    const v = name.trim();
+    if (!v || seen.has(v.toLowerCase())) continue;
+    seen.add(v.toLowerCase());
+    out.push(v);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/**
+ * Answer the "did you meet them?" prompt. Meeting IRL warms them up, leaves a note, and logs a
+ * contact observation (which also seeds the warmth decay curve). `where` records where you met.
+ */
+export async function answerMet(personId: number, answer: Answer, where?: string) {
   const cache = read();
   cache.answered[personId] = answer;
   write(cache);
@@ -84,7 +113,9 @@ export async function answerMet(personId: number, answer: Answer) {
         .update(people)
         .set({ warmthBoost: sql`${people.warmthBoost} + ${bump}`, warmth: sql`coalesce(${people.warmth},0) + ${bump}`, tracked: true })
         .where(eq(people.id, personId));
-      await addNote(p.name, "Met in person").catch(() => {});
+      const place = where?.trim();
+      await addNote(p.name, place ? `Met in person at ${place}` : "Met in person").catch(() => {});
+      await db.insert(observations).values({ kind: "contact_logged", personId, source: "owner", occurredAt: Date.now(), payload: { met: true, place: place ?? null } });
     }
   }
   return { ok: true };

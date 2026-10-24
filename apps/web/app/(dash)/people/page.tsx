@@ -1,6 +1,7 @@
 import { listPeople, listSuggestions } from "@agent/lib/queries";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { PinButton } from "../../_dash/pin-button";
 import { SuggestionList } from "../../_dash/suggestion-list";
 import { WarmthDot } from "../../_dash/warmth-dot";
 import { Avatar, EmptyState, PageHeader, platformLabel, relDay } from "../../_dash/ui";
@@ -66,6 +67,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                 >
                   {p.daysSinceContact === null ? "never logged" : p.daysSinceContact === 0 ? "today" : `${p.daysSinceContact}d`}
                 </span>
+                <PinButton personId={p.id} pinned={p.pinned} compact />
               </Link>
             </li>
           ))}

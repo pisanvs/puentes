@@ -1,9 +1,10 @@
 import { aliasedTable, and, desc, eq, inArray, like, lte, or, sql } from "drizzle-orm";
 import { db, schema } from "./db/client";
+import { personGraph, sharedWith } from "./graph/query";
 import { DAY } from "./util";
 import { isInnerCircle, rawForNorm } from "./warmth-curve";
 
-const { people, events, nudges, matches, objectives, identities, posts } = schema;
+const { people, events, nudges, matches, objectives, identities, posts, snapshots, observations } = schema;
 
 const daysAgo = (ms: number | null) => (ms ? Math.round((Date.now() - ms) / DAY) : null);
 
@@ -155,6 +156,116 @@ async function personDetail(p: Person) {
   };
 }
 
+/**
+ * The full dossier for one person: everything we've scraped (identities, profile snapshots, raw
+ * posts, derived events, the raw observation log) plus related material (graph links, people who
+ * share entities with them, open intros). Heavier than personDetail — this is for the web page, not
+ * the agent tools.
+ */
+export async function getPersonDossier(id: number) {
+  const [p] = await db.select().from(people).where(eq(people.id, id));
+  if (!p) return null;
+
+  const a = aliasedTable(people, "a");
+  const b = aliasedTable(people, "b");
+  const [ids, snaps, rawPosts, evs, obs, graph, related, mrows, pc, ec, oc] = await Promise.all([
+    db.select().from(identities).where(eq(identities.personId, id)),
+    db.select().from(snapshots).where(eq(snapshots.personId, id)).orderBy(desc(snapshots.takenAt)).limit(12),
+    db
+      .select({ platform: posts.platform, text: posts.text, url: posts.url, postedAt: posts.postedAt })
+      .from(posts)
+      .where(eq(posts.personId, id))
+      .orderBy(desc(posts.postedAt))
+      .limit(40),
+    db
+      .select({ type: events.type, summary: events.summary, occurredAt: events.occurredAt, entities: events.entities, asks: events.asks, offers: events.offers, url: posts.url })
+      .from(events)
+      .leftJoin(posts, eq(posts.id, events.postId))
+      .where(eq(events.personId, id))
+      .orderBy(desc(events.occurredAt))
+      .limit(30),
+    db
+      .select({ kind: observations.kind, source: observations.source, observedAt: observations.observedAt, occurredAt: observations.occurredAt, payload: observations.payload })
+      .from(observations)
+      .where(eq(observations.personId, id))
+      .orderBy(desc(observations.observedAt))
+      .limit(60),
+    personGraph(id),
+    sharedWith(id, 8),
+    db
+      .select({ match: matches, aId: a.id, aName: a.name, bId: b.id, bName: b.name })
+      .from(matches)
+      .innerJoin(a, eq(a.id, matches.personA))
+      .innerJoin(b, eq(b.id, matches.personB))
+      .where(and(or(eq(matches.personA, id), eq(matches.personB, id)), eq(matches.status, "new"))),
+    db.select({ n: sql<number>`count(*)` }).from(posts).where(eq(posts.personId, id)),
+    db.select({ n: sql<number>`count(*)` }).from(events).where(eq(events.personId, id)),
+    db.select({ n: sql<number>`count(*)` }).from(observations).where(eq(observations.personId, id)),
+  ]);
+
+  // Current profile = newest non-null value for each field across platforms.
+  const field = (k: "headline" | "company" | "location") => snaps.find((s) => s[k])?.[k] ?? null;
+  // Dedup asks/offers across events.
+  const flat = (k: "asks" | "offers") => [...new Set(evs.flatMap((e) => e[k] ?? []))].filter(Boolean);
+
+  // Warm-ups that drive the decay curve: contacts, engagement, notes, and the first connection/import.
+  const REINFORCE = new Set(["connection_made", "contact_logged", "engaged_with", "note_added"]);
+  const reinforcements = [
+    ...obs.filter((o) => REINFORCE.has(o.kind)).map((o) => o.occurredAt ?? o.observedAt),
+    ...(p.lastContacted ? [p.lastContacted] : []),
+    ...ids.map((i) => i.importedAt).filter((x): x is number => x != null),
+  ].sort((x, y) => x - y);
+
+  return {
+    id: p.id,
+    name: p.name,
+    tags: p.tags,
+    notes: p.notes,
+    phone: p.phone,
+    tracked: p.tracked,
+    pinned: p.pinned,
+    reinforcements,
+    warmth: p.warmth,
+    warmthReason: p.warmthReason,
+    daysSinceContact: daysAgo(p.lastContacted),
+    priorityReason: p.priorityReason,
+    current: { headline: field("headline"), company: field("company"), location: field("location") },
+    identities: ids.map((i) => ({
+      platform: i.platform,
+      handle: i.handle,
+      displayName: i.displayName,
+      bio: i.bio,
+      followers: i.followers,
+      mutual: i.mutual,
+    })),
+    snapshots: snaps.map((s) => ({ platform: s.platform, headline: s.headline, company: s.company, location: s.location, takenAt: new Date(s.takenAt).toISOString().slice(0, 10) })),
+    posts: rawPosts.map((r) => ({ ...r, postedAt: new Date(r.postedAt).toISOString().slice(0, 10) })),
+    timeline: evs.map((e) => ({
+      type: e.type,
+      summary: e.summary,
+      occurredAt: new Date(e.occurredAt).toISOString().slice(0, 10),
+      places: e.entities?.places ?? [],
+      asks: e.asks ?? [],
+      url: e.url,
+    })),
+    graph,
+    asks: flat("asks"),
+    offers: flat("offers"),
+    related: related.map((r) => ({ personId: r.personId, name: r.name, tracked: r.tracked, shared: r.shared, score: r.score })),
+    matches: mrows.map((r) => {
+      const self = r.aId === id;
+      return { matchId: r.match.id, otherId: self ? r.bId : r.aId, otherName: self ? r.bName : r.aName, shared: r.match.shared, reason: r.match.reason };
+    }),
+    observations: obs.map((o) => ({
+      kind: o.kind,
+      source: o.source,
+      when: new Date(o.occurredAt ?? o.observedAt).toISOString().slice(0, 10),
+      summary: (o.payload as { summary?: string } | null)?.summary ?? null,
+    })),
+    counts: { posts: pc[0].n, events: ec[0].n, observations: oc[0].n, identities: ids.length },
+  };
+}
+
 /** Everyone in the inner circle, stalest contact first, with their latest update. */
 export async function listPeople() {
   const [rows, latest, open, handles] = await Promise.all([
@@ -170,6 +281,7 @@ export async function listPeople() {
         id: p.id,
         name: p.name,
         tags: p.tags,
+        pinned: p.pinned,
         daysSinceContact: daysAgo(p.lastContacted),
         warmth: p.warmth,
         warmthReason: p.warmthReason,
@@ -178,7 +290,8 @@ export async function listPeople() {
         lastUpdate: last ? { summary: last.summary, occurredAt: new Date(last.occurredAt).toISOString().slice(0, 10) } : null,
       };
     })
-    .sort((a, b) => (b.daysSinceContact ?? 9999) - (a.daysSinceContact ?? 9999));
+    // Pinned ("keep warm") float to the top; within each group, stalest contact first.
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || (b.daysSinceContact ?? 9999) - (a.daysSinceContact ?? 9999));
 }
 
 /** Search recent events by free text over summaries and entities (city, company, topic). */
@@ -282,6 +395,11 @@ export async function addWarmthBoost(personId: number, amount: number) {
     .returning({ warmth: people.warmth, boost: people.warmthBoost });
   if (row) await db.update(people).set({ tracked: isInnerCircle(row.warmth) }).where(eq(people.id, personId));
   return row ?? null;
+}
+
+/** Pin/unpin someone as "keep warm". */
+export async function setPinned(personId: number, pinned: boolean) {
+  await db.update(people).set({ pinned }).where(eq(people.id, personId));
 }
 
 /** Add or remove someone from the inner circle by nudging their warmth across the cutoff. */

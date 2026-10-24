@@ -24,10 +24,17 @@ function parseProfile(bodies: Captured[], slug: string): Snapshot {
 
   for (const { body } of bodies)
     for (const o of walk(body)) {
-      if (o.publicIdentifier === slug && typeof o.headline === "string") {
-        headline ??= o.headline;
+      // The profile card: match on the slug, pull headline + the "based in" location field.
+      if (o.publicIdentifier === slug) {
+        if (typeof o.headline === "string") headline ??= o.headline;
         const geo = o.geoLocation?.geo ?? byUrn.get(o.geoLocation?.["*geo"] ?? o.geoLocation?.geoUrn ?? "");
-        location ??= geo?.defaultLocalizedNameWithoutCountryName ?? geo?.defaultLocalizedName ?? o.locationName ?? undefined;
+        location ??=
+          o.geoLocationName ?? // "San Francisco Bay Area"
+          geo?.defaultLocalizedNameWithoutCountryName ??
+          geo?.defaultLocalizedName ??
+          o.locationName ??
+          o.geoCountryName ??
+          undefined;
       }
       // Current position: has a company and a start date but no end date.
       if (!company && typeof o.companyName === "string" && o.dateRange?.start && !o.dateRange?.end) company = o.companyName;

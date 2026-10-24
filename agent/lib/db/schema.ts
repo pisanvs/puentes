@@ -19,6 +19,8 @@ export const people = sqliteTable("people", {
   warmthReason: text("warmth_reason"),
   // Manual "love taps" — survive recompute and add on top of the measured score.
   warmthBoost: real("warmth_boost").notNull().default(0),
+  // Pinned = "keep this one warm": surfaced, and nudged when their warmth curve is due to cool.
+  pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
 });
 
 export const identities = sqliteTable(

@@ -24,7 +24,10 @@ export async function collectX(ctx: BrowserContext, handle: string, since: numbe
   let oldest = Date.now();
 
   page.on("response", async (res) => {
-    if (!/\/graphql\/[^/]+\/UserTweets/.test(res.url())) return;
+    // X renames the profile-timeline op periodically. It's loaded "UserTweets" and, more recently,
+    // "UserOriginalsTimeline" (the Posts tab, originals only). Match any of the known names so a
+    // rename doesn't silently return 0 posts. findTweets below is shape-based, so the envelope is fine.
+    if (!/\/graphql\/[^/]+\/(UserTweets|UserTweetsAndReplies|UserOriginalsTimeline|UserMedia)\b/.test(res.url())) return;
     try {
       for (const t of findTweets(await res.json())) {
         const author = t.core?.user_results?.result?.core?.screen_name ?? t.core?.user_results?.result?.legacy?.screen_name;

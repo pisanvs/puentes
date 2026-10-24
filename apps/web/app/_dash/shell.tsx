@@ -1,6 +1,6 @@
 "use client";
 
-import { Handshake, Inbox, PlugZap, Share2, Target, Users } from "lucide-react";
+import { Handshake, Inbox, Newspaper, PlugZap, Share2, Target, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -10,6 +10,7 @@ import { DesktopAlerts } from "./desktop-alerts";
 import { RefreshButton } from "./refresh-button";
 
 const NAV = [
+  { href: "/today", label: "Today", icon: Newspaper },
   { href: "/", label: "Inbox", icon: Inbox, count: "nudges" },
   { href: "/intros", label: "Intros", icon: Handshake, count: "matches" },
   { href: "/people", label: "People", icon: Users },
