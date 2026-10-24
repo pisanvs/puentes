@@ -20,6 +20,7 @@ import { saveAccount } from "@agent/lib/contacts";
 import { type EntityKind, peopleAt } from "@agent/lib/graph/query";
 import { readJob, spawnJob } from "@agent/lib/jobs";
 import { answerMet } from "@agent/lib/new-people";
+import { parseDump } from "@agent/lib/dump";
 import { trackTop } from "@agent/lib/pipeline/prioritize";
 import { spawnPipeline } from "@agent/lib/spawn-pipeline";
 
@@ -134,6 +135,13 @@ export async function addTopSuggestions(n: number) {
   const added = await trackTop(n);
   refreshAll();
   return added;
+}
+
+/** Parse a free-form end-of-day dump into people/events/warmth. Returns what it recorded. */
+export async function dumpDay(text: string) {
+  const recorded = await parseDump(text);
+  refreshAll();
+  return recorded;
 }
 
 /** Lightweight feed for desktop alerts: ids are stable, so the client can tell what's new. */

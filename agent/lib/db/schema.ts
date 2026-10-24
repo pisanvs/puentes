@@ -21,6 +21,8 @@ export const people = sqliteTable("people", {
   warmthBoost: real("warmth_boost").notNull().default(0),
   // Pinned = "keep this one warm": surfaced, and nudged when their warmth curve is due to cool.
   pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+  // Last time we proactively pushed a "they're cooling, reconnect" reminder — so we don't repeat it.
+  coolingPushedAt: integer("cooling_pushed_at"),
 });
 
 export const identities = sqliteTable(
@@ -113,6 +115,8 @@ export const nudges = sqliteTable("nudges", {
   status: text("status", { enum: ["new", "done", "snoozed", "dismissed"] }).notNull().default("new"),
   snoozedUntil: integer("snoozed_until"),
   createdAt: integer("created_at").notNull().$defaultFn(now),
+  // Set when this nudge has been proactively pushed to the owner, so push never fires twice.
+  pushedAt: integer("pushed_at"),
 });
 
 export const matches = sqliteTable(

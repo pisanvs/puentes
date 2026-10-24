@@ -27,6 +27,7 @@ function parseProfile(bodies: Captured[], slug: string): Snapshot {
       // The profile card: match on the slug, pull headline + the "based in" location field.
       if (o.publicIdentifier === slug) {
         if (typeof o.headline === "string") headline ??= o.headline;
+        else if (typeof o.occupation === "string") headline ??= o.occupation; // dash profile card uses occupation
         const geo = o.geoLocation?.geo ?? byUrn.get(o.geoLocation?.["*geo"] ?? o.geoLocation?.geoUrn ?? "");
         location ??=
           o.geoLocationName ?? // "San Francisco Bay Area"
@@ -45,27 +46,35 @@ function parseProfile(bodies: Captured[], slug: string): Snapshot {
 }
 
 function parsePosts(bodies: Captured[], slug: string): RawPost[] {
-  const posts = new Map<string, RawPost>();
+  const posts = new Map<string, RawPost & { own: boolean }>();
+  const me = slug.toLowerCase();
   for (const { body } of bodies)
     for (const o of walk(body)) {
-      const urn: unknown = o.metadata?.backendUrn ?? o.updateMetadata?.urn;
+      // A real feed update (not a comment, reaction or type stub) carries an fsd_update entityUrn and
+      // the clean activity urn in metadata.backendUrn, with the text at commentary.text.text.
+      if (typeof o.entityUrn !== "string" || !o.entityUrn.includes("fsd_update:")) continue;
+      const urn: unknown = o.metadata?.backendUrn;
       const text: unknown = o.commentary?.text?.text;
       if (typeof urn !== "string" || !urn.startsWith("urn:li:activity:") || typeof text !== "string" || !text.trim()) continue;
-      // Headered updates are "X reposted / liked / commented on this". Keep reposts (amplification
-      // is a signal), skip likes/comments (noise). Their own posts have no header.
-      const headerText: string = o.header?.text?.text ?? o.header?.text ?? "";
-      const isRepost = /\brepost|\bshared\b/i.test(headerText);
-      if (o.header && !isRepost) continue;
-      if (!o.header && o.actor && !JSON.stringify(o.actor).includes(slug)) continue;
       const id = urn.split(":").pop()!;
+      // The displayed actor is the content's author. On a recent-activity page that's the person for
+      // their own posts, and the ORIGINAL author for things they reshared — we keep both (what someone
+      // amplifies is signal too), marking reshares. The old actor===slug check dropped every reshare.
+      const target: string = o.actor?.navigationContext?.actionTarget ?? "";
+      const authorHandle = /\/in\/([^?/]+)/.exec(target)?.[1]?.toLowerCase();
+      const authorName: string | undefined = o.actor?.name?.text;
+      const own = !!authorHandle && authorHandle === me;
+      const prev = posts.get(id);
+      if (prev && (prev.own || !own)) continue; // keep the person's own copy over a reshared duplicate
       posts.set(id, {
-        nativeId: isRepost ? `repost:${id}` : id,
+        own,
+        nativeId: own ? id : `repost:${id}`,
         url: `https://www.linkedin.com/feed/update/${urn}/`,
-        text: isRepost ? `♻️ reposted: ${text.trim()}` : text.trim(),
+        text: own ? text.trim() : `♻️ reposted${authorName ? ` ${authorName}` : ""}: ${text.trim()}`,
         postedAt: activityTime(id),
       });
     }
-  return [...posts.values()];
+  return [...posts.values()].map(({ own, ...p }) => p);
 }
 
 async function load(page: Page, url: string) {
@@ -83,6 +92,7 @@ export async function collectLinkedIn(
   const cap = captureJson(page, VOYAGER, `li-${slug}`);
   try {
     await load(page, `https://www.linkedin.com/in/${slug}/`);
+    await humanScroll(page, 2); // the profile card + location load lazily; a scroll coaxes the query
     await cap.settle();
     const snapshot = parseProfile(cap.bodies, slug);
 

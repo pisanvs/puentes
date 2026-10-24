@@ -1,5 +1,6 @@
 import { metPlaces, newPeople } from "@agent/lib/new-people";
 import { getNudges } from "@agent/lib/queries";
+import { DayDump } from "../_dash/day-dump";
 import { NewPeoplePrompt } from "../_dash/new-people-prompt";
 import { NudgeInbox } from "../_dash/nudge-inbox";
 import { PageHeader } from "../_dash/ui";
@@ -18,6 +19,7 @@ export default async function InboxPage() {
             : "Nothing waiting on you."
         }
       />
+      <DayDump />
       <NewPeoplePrompt initial={fresh} places={places} />
       <NudgeInbox initial={nudges} />
     </>
