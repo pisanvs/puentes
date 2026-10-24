@@ -117,6 +117,28 @@ export const owner = sqliteTable("owner", {
   updatedAt: integer("updated_at").notNull().$defaultFn(now),
 });
 
+/** Why we think someone is where the owner is: a recent post that puts them there, or they live there. */
+export type NearbyEvidence = { kind: "here_now" | "based_here"; detail: string; at?: number; eventId?: number };
+
+/** "Who's here now": people in the owner's network who are in the city the owner is in (or visiting). */
+export const nearby = sqliteTable(
+  "nearby",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    personId: integer("person_id").notNull().references(() => people.id),
+    place: text("place").notNull(), // canonical metro, e.g. "San Francisco"
+    evidence: text("evidence_json", { mode: "json" }).$type<NearbyEvidence[]>().notNull().default([]),
+    score: real("score").notNull(),
+    reason: text("reason").notNull(),
+    draft: text("draft").notNull(),
+    status: text("status", { enum: ["new", "done", "dismissed"] }).notNull().default("new"),
+    pushedAt: integer("pushed_at"),
+    createdAt: integer("created_at").notNull().$defaultFn(now),
+    updatedAt: integer("updated_at").notNull().$defaultFn(now),
+  },
+  (t) => [uniqueIndex("nearby_person_place").on(t.personId, t.place)],
+);
+
 /** The topic inner circle: themes the owner tracks across the network, like people but for ideas. */
 export const topics = sqliteTable("topics", {
   id: integer("id").primaryKey({ autoIncrement: true }),

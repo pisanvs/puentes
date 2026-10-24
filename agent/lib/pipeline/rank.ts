@@ -67,7 +67,7 @@ export async function rankNudges() {
     const { output } = await generateText({
       model: REASON_MODEL,
       output: Output.object({ schema: nudgeVerdicts }),
-      system: `You help the owner keep up with friends. Score each friend update for how worth reaching out about it is, given who the owner is, their objectives and the topics they watch. 0 = noise, 5 = nice reason to say hi, 8+ = directly advances an objective, touches a watched topic the owner can add to, or is a big life moment. Drafts are messages the owner sends to the friend; ground them in what the owner and friend actually share.${reader ? `\n\nWho the owner is: ${reader}` : ""}\n\nOwner's voice:\n${voice}`,
+      system: `You help the owner keep up with friends. Score each friend update for how worth reaching out about it is, given who the owner is, their objectives and the topics they watch. 0 = noise, 5 = nice reason to say hi, 8+ = directly advances an objective, touches a watched topic the owner can add to, or is a big life moment. Drafts are messages the owner sends to the friend; ground them in what the owner and friend actually share. Notes are dated by when the owner logged them, not when things happened — never claim when they last met unless the update says so.${reader ? `\n\nWho the owner is: ${reader}` : ""}\n\nOwner's voice:\n${voice}`,
       prompt: JSON.stringify({
         objectives: objectives.map((o) => ({ id: o.id, text: o.text })),
         updates: batch.map((e) => {

@@ -22,6 +22,7 @@ import { readJob, spawnJob } from "@agent/lib/jobs";
 import { answerMet } from "@agent/lib/new-people";
 import { parseDump } from "@agent/lib/dump";
 import { getOwner, type OwnerPatch, saveOwner, saveOwnerFacts } from "@agent/lib/me";
+import { computeNearby, setNearbyStatus } from "@agent/lib/nearby";
 import { unwatchTopic, watchTopic } from "@agent/lib/topics";
 import { trackTop } from "@agent/lib/pipeline/prioritize";
 import { spawnPipeline } from "@agent/lib/spawn-pipeline";
@@ -149,6 +150,18 @@ export async function saveAboutMe(patch: OwnerPatch) {
 export async function forgetFact(fact: string) {
   const me = await getOwner();
   await saveOwnerFacts(me.facts.filter((f) => f !== fact));
+  refreshAll();
+}
+
+/** Re-find who's in the owner's city right now (reads recent posts + bios; ~10-30s). */
+export async function refreshNearby() {
+  const r = await computeNearby();
+  refreshAll();
+  return r;
+}
+
+export async function closeNearby(id: number, outcome: "done" | "dismissed") {
+  await setNearbyStatus(id, outcome);
   refreshAll();
 }
 

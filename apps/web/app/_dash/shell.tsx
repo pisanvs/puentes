@@ -1,9 +1,11 @@
 "use client";
 
-import { Handshake, Hash, Inbox, Newspaper, PlugZap, Share2, UserRound, Users } from "lucide-react";
+import { Handshake, Hash, Inbox, Newspaper, PlugZap, Share2, Sparkles, UserRound, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ChatPanel } from "./chat-panel";
 import { cn } from "@/lib/utils";
 import type { PipelineStatus } from "./actions";
 import { DesktopAlerts } from "./desktop-alerts";
@@ -32,6 +34,26 @@ export function Shell({
   const path = usePathname();
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
+  // The agent panel: mounted on first open (no agent connection until you want it), kept mounted after
+  // so a streaming answer survives closing and navigating. ⌘K / Ctrl+K toggles, Esc closes.
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMounted, setChatMounted] = useState(false);
+  const toggleChat = (next = !chatOpen) => {
+    if (next) setChatMounted(true);
+    setChatOpen(next);
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setChatMounted(true);
+        setChatOpen((o) => !o);
+      } else if (e.key === "Escape") setChatOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[220px_1fr]">
       <aside className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur md:h-dvh md:border-r md:border-b-0">
@@ -43,6 +65,9 @@ export function Shell({
             bridgr
           </Link>
           <div className="flex items-center gap-1 md:hidden">
+            <Button variant="ghost" size="icon-sm" onClick={() => toggleChat(true)} aria-label="Ask bridgr">
+              <Sparkles />
+            </Button>
             <DesktopAlerts />
             <RefreshButton initial={status} compact />
           </div>
@@ -69,11 +94,20 @@ export function Shell({
           })}
         </nav>
         <div className="absolute inset-x-3 bottom-4 hidden flex-col gap-2 md:flex">
+          <button
+            type="button"
+            onClick={() => toggleChat()}
+            className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 text-sm font-medium shadow-sm transition-colors hover:border-brand/50"
+          >
+            <Sparkles className="size-4 text-brand" /> Ask bridgr
+            <kbd className="ml-auto rounded border bg-muted px-1 font-mono text-[10px] text-muted-foreground">⌘K</kbd>
+          </button>
           <RefreshButton initial={status} />
           <DesktopAlerts withLabel />
         </div>
       </aside>
       <main className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8 md:py-10">{children}</main>
+      {chatMounted && <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />}
     </div>
   );
 }

@@ -323,8 +323,9 @@ export const addNote = (name: string, note: string) => withPerson(name, async (p
 export const logContact = (name: string, daysAgoCount = 0) => withPerson(name, async (p) => {
   const at = Date.now() - daysAgoCount * DAY;
   await db.update(people).set({ lastContacted: at }).where(eq(people.id, p.id));
-  // Anything still open for them is now handled.
+  // Anything still open for them is now handled — follow-ups and "they're here" alike.
   await db.update(nudges).set({ status: "done" }).where(and(eq(nudges.personId, p.id), eq(nudges.status, "new")));
+  await db.update(schema.nearby).set({ status: "done", updatedAt: Date.now() }).where(and(eq(schema.nearby.personId, p.id), eq(schema.nearby.status, "new")));
   return { name: p.name, lastContacted: new Date(at).toISOString().slice(0, 10) };
 });
 

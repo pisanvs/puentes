@@ -1,9 +1,10 @@
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db, schema } from "./db/client";
+import { takeUnpushedNearby } from "./nearby";
 import { DAY } from "./util";
 import { warmthDecayCurve } from "./warmth-decay";
 
-const { people, nudges, identities, observations } = schema;
+const { people, nudges, events, identities, observations } = schema;
 
 // Don't re-remind about the same cooling person within this window.
 const COOLING_REPEAT = 10 * DAY;
@@ -13,23 +14,49 @@ const waLink = (phone: string, text: string) => `https://wa.me/${phone.replace(/
 
 export type PushNudge = { person: string; reason: string; draft: string; sendLink: string | null };
 export type PushCooling = { person: string; daysSince: number | null };
-export type Pushes = { nudges: PushNudge[]; cooling: PushCooling[] };
+export type PushNearby = { person: string; place: string; reason: string; draft: string; sendLink: string | null };
+export type Pushes = { nearby: PushNearby[]; nudges: PushNudge[]; cooling: PushCooling[] };
 
 const REINFORCE = new Set(["connection_made", "contact_logged", "engaged_with", "note_added"]);
+const LIFE_TYPES = new Set(["job_change", "move", "launch", "milestone"]);
 
 /**
- * Everything new worth proactively telling the owner about — and MARK it pushed/reminded so it
- * never fires twice. Returns empty arrays when there's nothing new (the schedule then stays quiet).
- * v1 is indiscriminate: every new nudge is pushed, no salience gate (that comes with jev categories).
+ * Smart push: what's worth interrupting the owner for *now*, by triage category.
+ *   push now — someone is where you are (nearby), a life update, whereabouts, an objective match,
+ *              or anything from a pinned person
+ *   digest   — work and interest posts: they stay in the inbox for the morning digest, not a ping
+ * Everything returned is marked pushed so it never fires twice; digest-tier nudges stay unmarked.
  */
+export function pushTier(n: { category: string | null; type: string; objectiveId: number | null; pinned: boolean }): "now" | "digest" {
+  if (n.pinned || n.objectiveId != null) return "now";
+  if (n.category === "life_update" || n.category === "location" || LIFE_TYPES.has(n.type) || n.type === "travel") return "now";
+  return "digest";
+}
+
 export async function collectPushes(): Promise<Pushes> {
-  // 1. New nudges we haven't pushed yet.
-  const rows = await db
-    .select({ id: nudges.id, person: people.name, phone: people.phone, reason: nudges.reason, draft: nudges.draft })
+  // 0. People in the city you're visiting — the most time-sensitive thing there is.
+  const near = await takeUnpushedNearby(3);
+  const pushNearby: PushNearby[] = near.map((n) => ({ person: n.name, place: n.place, reason: n.reason, draft: n.draft, sendLink: n.phone ? waLink(n.phone, n.draft) : null }));
+
+  // 1. New nudges we haven't pushed yet, filtered to the push-now tier.
+  const candidates_ = await db
+    .select({
+      id: nudges.id,
+      person: people.name,
+      phone: people.phone,
+      pinned: people.pinned,
+      reason: nudges.reason,
+      draft: nudges.draft,
+      objectiveId: nudges.objectiveId,
+      category: events.category,
+      type: events.type,
+    })
     .from(nudges)
     .innerJoin(people, eq(people.id, nudges.personId))
+    .innerJoin(events, eq(events.id, nudges.eventId))
     .where(and(eq(nudges.status, "new"), isNull(nudges.pushedAt)))
     .orderBy(desc(nudges.score));
+  const rows = candidates_.filter((r) => pushTier(r) === "now");
   if (rows.length) await db.update(nudges).set({ pushedAt: Date.now() }).where(inArray(nudges.id, rows.map((r) => r.id)));
   const pushNudges: PushNudge[] = rows.map((r) => ({
     person: r.person,
@@ -76,5 +103,5 @@ export async function collectPushes(): Promise<Pushes> {
     if (cooledIds.length) await db.update(people).set({ coolingPushedAt: Date.now() }).where(inArray(people.id, cooledIds));
   }
 
-  return { nudges: pushNudges, cooling };
+  return { nearby: pushNearby, nudges: pushNudges, cooling };
 }

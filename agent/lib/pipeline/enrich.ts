@@ -41,7 +41,7 @@ async function logEvent(
  * the graph knows, and the owner's own notes. Context is what lets "at #CloudflareConnect" read as
  * "an SF engineer is at a conference this week".
  */
-async function authorCards(personIds: number[]): Promise<Map<number, string>> {
+export async function authorCards(personIds: number[]): Promise<Map<number, string>> {
   const ids = [...new Set(personIds)];
   if (!ids.length) return new Map();
   const [ppl, idRows, snaps, links] = await Promise.all([

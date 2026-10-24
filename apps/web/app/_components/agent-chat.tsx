@@ -25,20 +25,32 @@ import { cn } from "@/lib/utils";
 import { AgentMessage } from "./agent-message";
 import { WEB_CHAT_AGENT } from "@/app/eve-agent";
 
-const DEFAULT_AGENT_NAME = "eve-agent";
+const DEFAULT_AGENT_NAME = "bridgr";
 const AGENT_NAME = WEB_CHAT_AGENT ?? DEFAULT_AGENT_NAME;
 
 export function AgentChat({
   sessionId,
   sessionless = false,
+  embedded = false,
+  onSession,
+  suggestions = [],
 }: {
   readonly sessionId?: string;
   readonly sessionless?: boolean;
+  /** Render inside a host panel: size to the container and report sessions instead of routing. */
+  readonly embedded?: boolean;
+  readonly onSession?: (sessionId: string) => void;
+  /** One-tap starter prompts for the empty state. */
+  readonly suggestions?: readonly string[];
 }) {
   const [cancellationError, setCancellationError] = useState<string>();
   const [hasInputText, setHasInputText] = useState(false);
   const hasSubmittedMessage = useRef(false);
   const replaceSessionRoute = (nextSessionId: string) => {
+    if (embedded) {
+      onSession?.(nextSessionId);
+      return;
+    }
     if (sessionId !== undefined) return;
     // Framework routers (Next.js, TanStack Router) patch window.history; navigating
     // through them would remount this route and detach the active stream.
@@ -61,6 +73,10 @@ export function AgentChat({
           },
     resume: sessionId !== undefined,
     onSessionChange(session) {
+      if (embedded && session !== undefined) {
+        onSession?.(session.sessionId);
+        return;
+      }
       if (hasSubmittedMessage.current && session !== undefined) {
         replaceSessionRoute(session.sessionId);
       }
@@ -134,7 +150,7 @@ export function AgentChat({
       <PromptInputTextarea
         disabled={isResuming}
         onChange={(event) => setHasInputText(event.currentTarget.value.trim().length > 0)}
-        placeholder="Send a message…"
+        placeholder={embedded ? "Ask bridgr anything, or tell it about your day…" : "Send a message…"}
       />
       <ComposerAction
         hasInputText={hasInputText}
@@ -144,6 +160,61 @@ export function AgentChat({
       />
     </PromptInput>
   );
+
+  const messages = agent.data.messages.map((message, index) =>
+    showPendingThinking && isPendingAssistantShell && message.id === lastMessage.id ? null : (
+      <AgentMessage
+        canRespond={canRespond}
+        isStreaming={agent.status === "streaming" && index === agent.data.messages.length - 1}
+        key={message.id}
+        message={message}
+        questionsFor={questionsFor}
+        onInputResponses={(inputResponses) => {
+          setCancellationError(undefined);
+          return agent.respond(inputResponses);
+        }}
+      />
+    ),
+  );
+
+  if (embedded) {
+    const empty = isEmpty && !isResuming && errorMessage === undefined;
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
+        {empty ? (
+          <div className="flex flex-1 flex-col justify-end gap-2 overflow-y-auto px-4 pb-3">
+            <p className="text-sm text-muted-foreground">Ask about your people, tell it about your day, or have it act for you.</p>
+            <div className="flex flex-col items-start gap-1.5">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="rounded-full border bg-card px-3 py-1.5 text-left text-sm shadow-sm transition-colors hover:border-brand/50 hover:text-foreground"
+                  onClick={() => void handleSubmit({ text: s, files: [] })}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Conversation
+            className="min-h-0 flex-1"
+            initial={sessionId === undefined ? undefined : false}
+            resize={activeSessionId === undefined ? "smooth" : "instant"}
+          >
+            <ConversationContent className="w-full gap-5 px-4 pt-4 pb-4">
+              {messages}
+              {showPendingThinking ? <PendingThinking /> : null}
+              {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
+        )}
+        <div className="border-t bg-background px-3 py-3">{composer}</div>
+      </div>
+    );
+  }
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
@@ -164,25 +235,7 @@ export function AgentChat({
         >
           <ConversationTopFade className="top-14" />
           <ConversationContent className="mx-auto w-full max-w-3xl gap-6 px-4 pt-20 pb-36 sm:px-6">
-            {agent.data.messages.map((message, index) =>
-              showPendingThinking &&
-              isPendingAssistantShell &&
-              message.id === lastMessage.id ? null : (
-                <AgentMessage
-                  canRespond={canRespond}
-                  isStreaming={
-                    agent.status === "streaming" && index === agent.data.messages.length - 1
-                  }
-                  key={message.id}
-                  message={message}
-                  questionsFor={questionsFor}
-                  onInputResponses={(inputResponses) => {
-                    setCancellationError(undefined);
-                    return agent.respond(inputResponses);
-                  }}
-                />
-              ),
-            )}
+            {messages}
             {showPendingThinking ? <PendingThinking /> : null}
             {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
           </ConversationContent>
