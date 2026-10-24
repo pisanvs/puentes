@@ -1,6 +1,6 @@
 "use client";
 
-import { Handshake, Inbox, Newspaper, PlugZap, Share2, Target, Users } from "lucide-react";
+import { Handshake, Hash, Inbox, Newspaper, PlugZap, Share2, UserRound, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -14,8 +14,9 @@ const NAV = [
   { href: "/", label: "Inbox", icon: Inbox, count: "nudges" },
   { href: "/intros", label: "Intros", icon: Handshake, count: "matches" },
   { href: "/people", label: "People", icon: Users },
+  { href: "/topics", label: "Topics", icon: Hash },
   { href: "/network", label: "Network", icon: Share2 },
-  { href: "/objectives", label: "Objectives", icon: Target },
+  { href: "/objectives", label: "You", icon: UserRound },
   { href: "/sources", label: "Sources", icon: PlugZap },
 ] as const;
 

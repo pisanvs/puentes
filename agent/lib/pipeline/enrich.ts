@@ -3,14 +3,16 @@ import { and, asc, desc, eq, isNull, lt, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "../db/client";
 import { EVENT_TYPES } from "../db/schema";
+import { ownerCard } from "../me";
 import { EXTRACT_MODEL } from "../models";
+import { listWatched } from "../topics";
 import { triage } from "../triage";
 import { pMap } from "../util";
 
 const extraction = z.object({
   relevant: z
     .boolean()
-    .describe("False for reposts of others, memes, ads or anything that says nothing about the author's life."),
+    .describe("False only if the post says nothing about the author's life, work, whereabouts or interests (ads, spam, empty). Reshares count: they show what the author amplifies."),
   type: z.enum(EVENT_TYPES),
   summary: z.string().describe("One sentence, third person, e.g. 'Ana started as PM at Stripe in SF.'"),
   entities: z.object({
@@ -34,6 +36,50 @@ async function logEvent(
   await db.insert(schema.observations).values({ kind, personId, source, occurredAt, payload });
 }
 
+/**
+ * A one-line card per author for the classifier and extractor: headline, company, base, bio, what
+ * the graph knows, and the owner's own notes. Context is what lets "at #CloudflareConnect" read as
+ * "an SF engineer is at a conference this week".
+ */
+async function authorCards(personIds: number[]): Promise<Map<number, string>> {
+  const ids = [...new Set(personIds)];
+  if (!ids.length) return new Map();
+  const [ppl, idRows, snaps, links] = await Promise.all([
+    db.select({ id: schema.people.id, name: schema.people.name, notes: schema.people.notes, tracked: schema.people.tracked }).from(schema.people).where(inArray(schema.people.id, ids)),
+    db.select({ personId: schema.identities.personId, platform: schema.identities.platform, bio: schema.identities.bio }).from(schema.identities).where(inArray(schema.identities.personId, ids)),
+    db.select().from(schema.snapshots).where(inArray(schema.snapshots.personId, ids)).orderBy(desc(schema.snapshots.takenAt)),
+    db
+      .select({ personId: schema.edges.personId, predicate: schema.edges.predicate, name: schema.entities.name })
+      .from(schema.edges)
+      .innerJoin(schema.entities, eq(schema.entities.id, schema.edges.entityId))
+      .where(inArray(schema.edges.personId, ids)),
+  ]);
+  const cards = new Map<number, string>();
+  for (const p of ppl) {
+    const mine = snaps.filter((s) => s.personId === p.id);
+    const pick = (k: "headline" | "company" | "location") => mine.find((s) => s[k])?.[k];
+    const bios = [...new Set(idRows.filter((i) => i.personId === p.id && i.bio).map((i) => i.bio!.replace(/\s+/g, " ").slice(0, 160)))];
+    const graph = links.filter((l) => l.personId === p.id).slice(0, 8).map((l) => `${l.predicate.replace("_", " ")} ${l.name}`);
+    const notes = p.notes.replace(/\s+/g, " ").slice(-200);
+    cards.set(
+      p.id,
+      [
+        p.name,
+        pick("headline") && `headline: ${pick("headline")}`,
+        pick("company") && `works at ${pick("company")}`,
+        pick("location") && `based in ${pick("location")}`,
+        bios.length && `bio: ${bios.join(" | ")}`,
+        graph.length && `known: ${graph.join(", ")}`,
+        p.tracked && "in the owner's inner circle",
+        notes && `owner's notes: ${notes}`,
+      ]
+        .filter(Boolean)
+        .join("; "),
+    );
+  }
+  return cards;
+}
+
 /** Turn unenriched posts into events, and LinkedIn snapshot changes into job_change/move events. */
 export async function enrich() {
   const pending = await db
@@ -42,21 +88,36 @@ export async function enrich() {
     .innerJoin(schema.people, eq(schema.people.id, schema.posts.personId))
     .where(isNull(schema.posts.enrichedAt));
 
-  // Cheap triage first: only posts that plausibly matter get the expensive extraction.
+  // Cheap triage first: a category per post. Only noise is dropped; everything else — life updates,
+  // work, whereabouts, interests — goes on to extraction so the paper reflects the whole network.
   const objectives = await db.select({ id: schema.objectives.id, text: schema.objectives.text }).from(schema.objectives);
-  const verdicts = objectives.length ? await triage(pending.map((p) => p.post.text), objectives) : pending.map(() => ({ relevant: true, escalate: true, objectiveIds: [], reason: "" }));
-  const toExtract = pending.filter((_, i) => verdicts[i].relevant && verdicts[i].escalate);
-  // Mark the filtered-out posts handled so we don't re-triage them.
-  const skipped = pending.filter((_, i) => !(verdicts[i].relevant && verdicts[i].escalate));
+  const [cards, topics, reader] = await Promise.all([
+    authorCards(pending.map((p) => p.post.personId)),
+    listWatched(),
+    ownerCard(),
+  ]);
+  const verdicts = await triage(
+    pending.map(({ post }) => ({
+      text: `[${post.platform}, ${new Date(post.postedAt).toISOString().slice(0, 10)}] ${post.text}`,
+      context: cards.get(post.personId),
+    })),
+    { objectives, topics, reader: reader || undefined },
+  );
+  await Promise.all(
+    pending.map(({ post }, i) => db.update(schema.posts).set({ category: verdicts[i].category }).where(eq(schema.posts.id, post.id))),
+  );
+  const toExtract = pending.map((p, i) => ({ ...p, verdict: verdicts[i] })).filter((p) => p.verdict.relevant);
+  // Mark the noise handled so we don't re-triage it.
+  const skipped = pending.filter((_, i) => !verdicts[i].relevant);
   if (skipped.length)
     await db.update(schema.posts).set({ enrichedAt: Date.now() }).where(inArray(schema.posts.id, skipped.map((p) => p.post.id)));
 
   let created = 0;
-  await pMap(toExtract, 5, async ({ post, name }) => {
+  await pMap(toExtract, 5, async ({ post, name, verdict }) => {
     const { output } = await generateText({
       model: EXTRACT_MODEL,
       output: Output.object({ schema: extraction }),
-      prompt: `Extract the life update from this ${post.platform} post by ${name}, posted ${new Date(post.postedAt).toISOString().slice(0, 10)}.\n\n${post.text}`,
+      prompt: `Summarize what this ${post.platform} post by ${name}, posted ${new Date(post.postedAt).toISOString().slice(0, 10)}, says about them. Triage filed it as "${verdict.category}" — for location, say where they are or will be; for interest, say what they're amplifying.\n\nAbout ${name}: ${cards.get(post.personId) ?? "(nothing known yet)"}\n\nPost:\n${post.text}`,
     });
     if (output.relevant) {
       const [ev] = await db
@@ -65,6 +126,8 @@ export async function enrich() {
           personId: post.personId,
           postId: post.id,
           type: output.type,
+          category: verdict.category,
+          topicIds: verdict.topicIds,
           summary: output.summary,
           entities: output.entities,
           asks: output.asks,

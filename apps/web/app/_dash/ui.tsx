@@ -1,4 +1,30 @@
+import { Briefcase, MapPin, Newspaper, Repeat2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** Visual language for triage categories: one color + icon each, used on dots, pills and rails. */
+export const CATEGORY_META = {
+  life_update: { label: "Life update", Icon: Sparkles, dot: "bg-rose-500", chip: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },
+  location: { label: "Whereabouts", Icon: MapPin, dot: "bg-sky-500", chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400" },
+  professional: { label: "Work", Icon: Briefcase, dot: "bg-amber-500", chip: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+  interest: { label: "Interest", Icon: Repeat2, dot: "bg-violet-500", chip: "bg-violet-500/10 text-violet-600 dark:text-violet-400" },
+  other: { label: "Update", Icon: Newspaper, dot: "bg-muted-foreground", chip: "bg-muted text-muted-foreground" },
+} as const;
+
+/** Life events show as life updates whatever triage said; otherwise the category picks the look. */
+export function categoryMeta(category: string | null | undefined, type?: string) {
+  if (type && ["job_change", "move", "launch", "milestone"].includes(type)) return CATEGORY_META.life_update;
+  return CATEGORY_META[(category ?? "other") as keyof typeof CATEGORY_META] ?? CATEGORY_META.other;
+}
+
+export function CategoryPill({ category, type, className }: { category: string | null | undefined; type?: string; className?: string }) {
+  const m = categoryMeta(category, type);
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", m.chip, className)}>
+      <m.Icon className="size-3" />
+      {m.label}
+    </span>
+  );
+}
 
 const PLATFORM_LABEL: Record<string, string> = { bluesky: "Bluesky", x: "X", linkedin: "LinkedIn", instagram: "Instagram" };
 export const platformLabel = (p: string | null | undefined) => (p ? (PLATFORM_LABEL[p] ?? p) : null);
@@ -16,17 +42,29 @@ const TYPE_LABEL: Record<string, string> = {
 };
 export const typeLabel = (t: string) => TYPE_LABEL[t] ?? "Update";
 
-/** Newspaper desks: event types grouped into front-page sections, in print order. */
+/** Newspaper desks, in print order. */
 export const SECTIONS = [
-  { id: "moves", label: "Moves & Launches", types: ["job_change", "move", "launch"] },
-  { id: "asks", label: "Asking Around", types: ["ask"] },
-  { id: "out", label: "Out & About", types: ["travel", "event"] },
-  { id: "milestones", label: "Milestones", types: ["milestone"] },
-  { id: "minds", label: "On Their Minds", types: ["opinion", "other"] },
+  { id: "moves", label: "Moves & Launches" },
+  { id: "asks", label: "Asking Around" },
+  { id: "out", label: "Out & About" },
+  { id: "milestones", label: "Milestones" },
+  { id: "work", label: "At Work" },
+  { id: "minds", label: "On Their Minds" },
 ] as const;
 
-/** Which desk a story runs under (defaults to the catch-all "On Their Minds"). */
-export const sectionFor = (type: string) => SECTIONS.find((s) => (s.types as readonly string[]).includes(type))?.id ?? "minds";
+/**
+ * Which desk a story runs under. Whereabouts win (that's who you could meet), then life updates by
+ * event type, then the triage category for everything else.
+ */
+export function sectionFor(type: string, category?: string | null): (typeof SECTIONS)[number]["id"] {
+  if (category === "location" || type === "travel") return "out";
+  if (["job_change", "move", "launch"].includes(type)) return "moves";
+  if (type === "ask") return "asks";
+  if (type === "milestone") return "milestones";
+  if (category === "professional") return "work";
+  if (type === "event") return "out";
+  return "minds";
+}
 
 /** "2026-10-22" → "2d ago" */
 export function relDay(isoDate: string) {

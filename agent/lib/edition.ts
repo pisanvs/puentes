@@ -1,5 +1,6 @@
 import { desc, eq, gte } from "drizzle-orm";
 import { db, schema } from "./db/client";
+import { listWatched } from "./topics";
 import { DAY } from "./util";
 
 const { people, events, nudges, objectives, posts } = schema;
@@ -31,12 +32,15 @@ export async function todayEdition() {
     .where(gte(events.occurredAt, since))
     .orderBy(desc(events.occurredAt));
 
+  const topicName = new Map((await listWatched()).map((t) => [t.id, t.name]));
   const stories = rows
     .map((r) => ({
       eventId: r.event.id,
       personId: r.person.id,
       person: r.person.name,
       type: r.event.type,
+      category: r.event.category,
+      topics: r.event.topicIds.map((id) => topicName.get(id)).filter((n): n is string => !!n),
       summary: r.event.summary,
       occurredAt: iso(r.event.occurredAt),
       occurredMs: r.event.occurredAt,

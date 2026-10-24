@@ -42,6 +42,10 @@ export const identities = sqliteTable(
   (t) => [uniqueIndex("identities_platform_handle").on(t.platform, t.handle)],
 );
 
+/** What kind of signal a post is, decided by triage. non_relevant posts never reach extraction. */
+export const POST_CATEGORIES = ["life_update", "professional", "location", "interest", "non_relevant"] as const;
+export type PostCategory = (typeof POST_CATEGORIES)[number];
+
 export const posts = sqliteTable("posts", {
   // `${platform}:${nativeId}`
   id: text("id").primaryKey(),
@@ -52,6 +56,7 @@ export const posts = sqliteTable("posts", {
   postedAt: integer("posted_at").notNull(),
   raw: text("raw_json", { mode: "json" }),
   enrichedAt: integer("enriched_at"),
+  category: text("category", { enum: POST_CATEGORIES }),
 });
 
 export const snapshots = sqliteTable("snapshots", {
@@ -95,6 +100,29 @@ export const events = sqliteTable("events", {
   offers: text("offers_json", { mode: "json" }).$type<string[]>().notNull().default([]),
   occurredAt: integer("occurred_at").notNull(),
   rankedAt: integer("ranked_at"),
+  category: text("category", { enum: POST_CATEGORIES }),
+  // Watched topics (topics.id) this event is about, tagged by jev.
+  topicIds: text("topic_ids_json", { mode: "json" }).$type<number[]>().notNull().default([]),
+});
+
+/** The owner — who bridgr works for. A single row (id 1) that every model reads as the "reader card". */
+export const owner = sqliteTable("owner", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull().default(""),
+  headline: text("headline").notNull().default(""),
+  homeBase: text("home_base").notNull().default(""),
+  about: text("about").notNull().default(""), // who you are, what you're building, what you care about
+  trip: text("trip_json", { mode: "json" }).$type<{ place: string; from?: string; to?: string } | null>(),
+  facts: text("facts_json", { mode: "json" }).$type<string[]>().notNull().default([]), // learned in conversation
+  updatedAt: integer("updated_at").notNull().$defaultFn(now),
+});
+
+/** The topic inner circle: themes the owner tracks across the network, like people but for ideas. */
+export const topics = sqliteTable("topics", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  weight: real("weight").notNull().default(1),
+  createdAt: integer("created_at").notNull().$defaultFn(now),
 });
 
 export const objectives = sqliteTable("objectives", {

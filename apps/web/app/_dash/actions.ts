@@ -21,6 +21,8 @@ import { type EntityKind, peopleAt } from "@agent/lib/graph/query";
 import { readJob, spawnJob } from "@agent/lib/jobs";
 import { answerMet } from "@agent/lib/new-people";
 import { parseDump } from "@agent/lib/dump";
+import { getOwner, type OwnerPatch, saveOwner, saveOwnerFacts } from "@agent/lib/me";
+import { unwatchTopic, watchTopic } from "@agent/lib/topics";
 import { trackTop } from "@agent/lib/pipeline/prioritize";
 import { spawnPipeline } from "@agent/lib/spawn-pipeline";
 
@@ -135,6 +137,30 @@ export async function addTopSuggestions(n: number) {
   const added = await trackTop(n);
   refreshAll();
   return added;
+}
+
+/** Save the owner's profile (who bridgr works for). Re-rank so "why now" reflects it. */
+export async function saveAboutMe(patch: OwnerPatch) {
+  const me = await saveOwner(patch);
+  refreshAll();
+  return me;
+}
+
+export async function forgetFact(fact: string) {
+  const me = await getOwner();
+  await saveOwnerFacts(me.facts.filter((f) => f !== fact));
+  refreshAll();
+}
+
+export async function watchTopicAction(name: string, weight = 1) {
+  const r = await watchTopic(name, weight);
+  refreshAll();
+  return { id: r.topic.id, name: r.topic.name, backfilled: r.backfilled };
+}
+
+export async function unwatchTopicAction(id: number) {
+  await unwatchTopic(id);
+  refreshAll();
 }
 
 /** Parse a free-form end-of-day dump into people/events/warmth. Returns what it recorded. */

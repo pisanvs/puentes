@@ -3,7 +3,9 @@ import { generateText, Output } from "ai";
 import { and, gt, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "../db/client";
+import { ownerCard } from "../me";
 import { REASON_MODEL } from "../models";
+import { listWatched } from "../topics";
 import { DAY } from "../util";
 
 const LOOKBACK = 21 * DAY;
@@ -55,7 +57,8 @@ export async function rankNudges() {
         .where(inArray(schema.people.id, [...new Set(fresh.map((e) => e.personId))]))
     ).map((p) => [p.id, p]),
   );
-  const voice = await voiceGuide();
+  const [voice, reader, watched] = await Promise.all([voiceGuide(), ownerCard(), listWatched()]);
+  const topicById = new Map(watched.map((t) => [t.id, t]));
   const byId = new Map(fresh.map((e) => [e.id, e]));
   let created = 0;
 
@@ -64,7 +67,7 @@ export async function rankNudges() {
     const { output } = await generateText({
       model: REASON_MODEL,
       output: Output.object({ schema: nudgeVerdicts }),
-      system: `You help the owner keep up with friends. Score each friend update for how worth reaching out about it is, given the owner's objectives. 0 = noise, 5 = nice reason to say hi, 8+ = directly advances an objective or is a big life moment. Drafts are messages the owner sends to the friend.\n\nOwner's voice:\n${voice}`,
+      system: `You help the owner keep up with friends. Score each friend update for how worth reaching out about it is, given who the owner is, their objectives and the topics they watch. 0 = noise, 5 = nice reason to say hi, 8+ = directly advances an objective, touches a watched topic the owner can add to, or is a big life moment. Drafts are messages the owner sends to the friend; ground them in what the owner and friend actually share.${reader ? `\n\nWho the owner is: ${reader}` : ""}\n\nOwner's voice:\n${voice}`,
       prompt: JSON.stringify({
         objectives: objectives.map((o) => ({ id: o.id, text: o.text })),
         updates: batch.map((e) => {
@@ -79,6 +82,7 @@ export async function rankNudges() {
             summary: e.summary,
             entities: e.entities,
             asks: e.asks,
+            watchedTopics: e.topicIds.map((id) => topicById.get(id)?.name).filter(Boolean),
           };
         }),
       }),
@@ -94,7 +98,9 @@ export async function rankNudges() {
         v.relevance * weight +
         Math.min(daysSince, 90) / 30 +
         Math.max(0, 2 - (Date.now() - e.occurredAt) / (7 * DAY)) +
-        (TYPE_BOOST[e.type] ?? 0);
+        (TYPE_BOOST[e.type] ?? 0) +
+        // Watched topics pull a story up, scaled by how much the owner cares about the topic.
+        Math.min(2, e.topicIds.reduce((s, id) => s + 0.75 * (topicById.get(id)?.weight ?? 0), 0));
 
       await db
         .insert(schema.nudges)
@@ -186,11 +192,11 @@ export async function rankMatches() {
   const context = (id: number) =>
     recent.filter((e) => e.personId === id).map((e) => ({ summary: e.summary, asks: e.asks, offers: e.offers }));
 
+  const reader = await ownerCard();
   const { output } = await generateText({
     model: REASON_MODEL,
     output: Output.object({ schema: matchVerdicts }),
-    system:
-      "You spot serendipitous introductions between the owner's friends. Only say worthIntro when both people would plausibly thank the owner for it. Shared generic topics alone are not enough.",
+    system: `You spot serendipitous introductions between the owner's friends. Only say worthIntro when both people would plausibly thank the owner for it. Shared generic topics alone are not enough.${reader ? `\n\nWho the owner is (the intro comes from them, in their voice): ${reader}` : ""}`,
     prompt: JSON.stringify(
       candidates.map((c, i) => ({
         index: i,
