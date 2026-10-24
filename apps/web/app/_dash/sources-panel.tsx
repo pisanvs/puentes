@@ -23,7 +23,7 @@ export function SourcesPanel({ sources }: { sources: Source[] }) {
       {showBrowser && (
         <div className="space-y-2 pt-1">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Puentes' browser</p>
+            <p className="text-sm font-medium">bridgr's browser</p>
             <Button size="sm" variant="ghost" onClick={() => setShowBrowser(false)}>
               <ChevronUp /> Hide
             </Button>

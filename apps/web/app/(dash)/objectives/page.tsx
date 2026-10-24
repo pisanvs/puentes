@@ -10,7 +10,7 @@ export default async function ObjectivesPage() {
     <>
       <PageHeader
         title="Objectives"
-        subtitle="What Puentes optimizes for. Every update is scored against these, so be specific: goals, trips, people you want to meet."
+        subtitle="What bridgr optimizes for. Every update is scored against these, so be specific: goals, trips, people you want to meet."
       />
       <ObjectivesEditor initial={objectives} />
     </>

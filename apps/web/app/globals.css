@@ -56,7 +56,7 @@
   --input: oklch(0.916 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 0.625rem;
-  /* Puentes accent: one hue, used for 'why now' and the primary action. */
+  /* bridgr accent: one hue, used for 'why now' and the primary action. */
   --brand: oklch(0.52 0.11 165);
   --brand-soft: oklch(0.95 0.03 165);
 }

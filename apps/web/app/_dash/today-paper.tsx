@@ -54,7 +54,7 @@ export function TodayPaper({ edition, status }: { edition: Edition; status: Pipe
             );
           })}
           <p className="mt-10 border-t border-foreground/15 pt-3 text-center text-[11px] uppercase tracking-widest text-muted-foreground">
-            Puentes · compiled from your network · covering the last {edition.sinceDays} days
+            bridgr · compiled from your network · covering the last {edition.sinceDays} days
           </p>
         </>
       )}
@@ -94,7 +94,7 @@ function Masthead({
         <span className="hidden sm:inline">{counts.today} today</span>
       </div>
       <div className="mt-1 border-y-2 border-foreground py-2">
-        <h1 className={cn(serif, "text-4xl font-black tracking-tight sm:text-5xl")}>Puentes Daily</h1>
+        <h1 className={cn(serif, "text-4xl font-black tracking-tight sm:text-5xl")}>bridgr Daily</h1>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 text-xs text-muted-foreground">
         <span className="uppercase tracking-wider">{longDate(date)}</span>

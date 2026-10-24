@@ -15,9 +15,9 @@ const NAMED_KEYS = new Set([
 ]);
 
 /**
- * Live view of Puentes' own browser (the daemon). Frames stream in over its WebSocket and your
+ * Live view of bridgr's own browser (the daemon). Frames stream in over its WebSocket and your
  * mouse, wheel and keys are relayed back, so you can sign in to your accounts without leaving the app.
- * It drives Puentes' browser instance, not your everyday Chrome.
+ * It drives bridgr's browser instance, not your everyday Chrome.
  */
 export function BrowserView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -150,7 +150,7 @@ export function BrowserView() {
         )}
       </div>
       <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-        This is Puentes' own browser. Sign in here and it stays signed in. Click the canvas, then type.
+        This is bridgr's own browser. Sign in here and it stays signed in. Click the canvas, then type.
       </p>
     </div>
   );

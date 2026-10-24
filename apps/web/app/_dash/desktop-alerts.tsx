@@ -48,7 +48,7 @@ export function DesktopAlerts({ withLabel }: { withLabel?: boolean }) {
 
   const check = useCallback(async () => {
     const items = await inboxPulse();
-    document.title = items.length ? `(${items.length}) Puentes` : "Puentes";
+    document.title = items.length ? `(${items.length}) bridgr` : "bridgr";
     const seen = read<number[] | null>(SEEN_KEY, null);
     if (seen && enabled) {
       for (const item of items.filter((i) => !seen.includes(i.id)).slice(0, 3)) {
@@ -84,7 +84,7 @@ export function DesktopAlerts({ withLabel }: { withLabel?: boolean }) {
     setEnabled(on);
     write(ON_KEY, on);
     window.dispatchEvent(new Event(TOGGLED_EVENT));
-    if (on) new Notification("Puentes alerts are on", { body: "You'll get a ping when someone's worth reaching out to." });
+    if (on) new Notification("bridgr alerts are on", { body: "You'll get a ping when someone's worth reaching out to." });
   };
 
   if (!supported) return null;

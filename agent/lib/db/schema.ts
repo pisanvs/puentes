@@ -140,7 +140,7 @@ export const matches = sqliteTable(
 /**
  * Append-only log of everything observed, the source of truth the graph is built from.
  * One row per observation; re-imports log only what changed. occurredAt is when it happened in
- * the world (e.g. a connection date), observedAt is when Puentes recorded it.
+ * the world (e.g. a connection date), observedAt is when bridgr recorded it.
  */
 export const OBSERVATION_KINDS = [
   "connection_made", // you connected with / followed someone

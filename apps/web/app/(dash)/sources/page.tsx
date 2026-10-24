@@ -15,7 +15,7 @@ export default async function SourcesPage() {
     <>
       <PageHeader
         title="Sources"
-        subtitle="Sign in once, right here. Puentes keeps its own browser signed in so it can read who you follow."
+        subtitle="Sign in once, right here. bridgr keeps its own browser signed in so it can read who you follow."
       />
       <SourcesPanel
         sources={PLATFORMS.map((p) => ({
@@ -37,8 +37,8 @@ export default async function SourcesPage() {
         </Link>
       )}
       <p className="mt-6 text-xs leading-relaxed text-muted-foreground">
-        Puentes reads the same API responses the sites load for you, slowly and only for people you pick. Your sessions stay in
-        Puentes' own browser profile (<code>.profile/</code>) on this machine — it never touches your everyday Chrome.
+        bridgr reads the same API responses the sites load for you, slowly and only for people you pick. Your sessions stay in
+        bridgr's own browser profile (<code>.profile/</code>) on this machine — it never touches your everyday Chrome.
       </p>
     </>
   );

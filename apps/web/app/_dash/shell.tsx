@@ -37,9 +37,9 @@ export function Shell({
         <div className="flex items-center justify-between px-4 py-3 md:px-5 md:py-5">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span className="inline-flex size-7 items-center justify-center rounded-lg bg-brand text-sm text-white dark:text-black">
-              P
+              b
             </span>
-            Puentes
+            bridgr
           </Link>
           <div className="flex items-center gap-1 md:hidden">
             <DesktopAlerts />

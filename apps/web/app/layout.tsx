@@ -20,7 +20,7 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Puentes",
+  title: "bridgr",
   description: "Follow-ups and intros from your inner circle, ranked by what you care about.",
 };
 

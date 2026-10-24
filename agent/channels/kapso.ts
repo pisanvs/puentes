@@ -15,7 +15,7 @@ export const kapso = createKapsoAdapter({
 });
 
 export const { bot, channel, send } = chatSdkChannel({
-  userName: "Puentes",
+  userName: "bridgr",
   adapters: { kapso },
   state: createMemoryState(),
   // Hand every message to eve, even mid-reply, so eve can steer the running turn.
@@ -24,7 +24,7 @@ export const { bot, channel, send } = chatSdkChannel({
   streaming: false,
 });
 
-// Every WhatsApp chat is a DM. Puentes only ever talks to its owner.
+// Every WhatsApp chat is a DM. bridgr only ever talks to its owner.
 bot.onDirectMessage(async (thread: Thread, message: Message) => {
   if (!isOwner(message.author.userId)) return;
   await thread.subscribe();

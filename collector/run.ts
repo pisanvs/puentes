@@ -60,7 +60,10 @@ export async function collect(platforms = ALL_PLATFORMS, progress: (m: string) =
   const stats: Record<string, { people: number; newPosts: number; errors: number; skipped?: string }> = {};
 
   if (needsBrowser) ctx = await openBrowser();
-  for (const platform of platforms) {
+  // Platforms run concurrently: different sites have independent rate limits, so the slow one
+  // (Instagram) no longer waits behind the others. Within a platform, people stay sequential to
+  // respect per-site limits. All share the one browser context (each adapter opens its own page).
+  async function scrapePlatform(platform: Platform) {
     let ids = await identitiesFor(platform);
     if (platform === "linkedin") ids = ids.slice(0, LINKEDIN_CAP);
     const s = (stats[platform] = { people: ids.length, newPosts: 0, errors: 0 } as (typeof stats)[string]);
@@ -70,7 +73,7 @@ export async function collect(platforms = ALL_PLATFORMS, progress: (m: string) =
       } catch (err) {
         s.skipped = (err as Error).message;
         progress(`[${platform}] skipped: ${s.skipped}`);
-        continue;
+        return;
       }
     }
 
@@ -93,6 +96,8 @@ export async function collect(platforms = ALL_PLATFORMS, progress: (m: string) =
       if (platform !== "bluesky") await jitter(3000, 7000);
     }
   }
+
+  await Promise.all(platforms.map(scrapePlatform));
   return stats;
 }
 
