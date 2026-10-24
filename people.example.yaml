@@ -1,0 +1,40 @@
+# Copy to people.yaml (gitignored) and list your inner circle.
+# Handles: bluesky = full handle, x = screen name without @, linkedin = the /in/<slug> part.
+# The people below are fictional and match fixtures/demo.json for `npm run demo`.
+objectives:
+  - text: Find a technical cofounder working on climate or energy
+    weight: 1.5
+  - text: I'm in New York Dec 3-7 and want to see friends there
+    weight: 1
+  - text: Reconnect with college friends I haven't talked to in a while
+    weight: 0.8
+
+people:
+  - name: Ana Rivera
+    phone: "+14155550101"
+    tags: [college, fintech]
+    notes: Roommate sophomore year. Loves climbing.
+    handles:
+      bluesky: ana-rivera.example.bsky.social
+      linkedin: ana-rivera-demo
+  - name: Diego Soto
+    tags: [climate, founder]
+    handles:
+      x: diegosoto_demo
+      linkedin: diego-soto-demo
+  - name: Sofi Mendez
+    tags: [climate, investor]
+    handles:
+      x: sofimendez_demo
+  - name: Kenji Watanabe
+    tags: [college, design]
+    handles:
+      bluesky: kenji.example.bsky.social
+  - name: Priya Nair
+    tags: [work]
+    handles:
+      linkedin: priya-nair-demo
+  - name: Tom Becker
+    tags: [college]
+    handles:
+      x: tombecker_demo

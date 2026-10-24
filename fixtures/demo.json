@@ -1,0 +1,111 @@
+{
+  "_comment": "Fictional demo data for `npm run demo`. Dates are shifted to now on load.",
+  "posts": [
+    {
+      "person": "Ana Rivera",
+      "platform": "bluesky",
+      "nativeId": "3m2ana1",
+      "url": "https://bsky.app/profile/demo/post/3m2ana1",
+      "text": "first week at stripe done 🎉 moved to SF for it, still hunting for the good coffee spots. recs welcome",
+      "postedAt": 1792827200000
+    },
+    {
+      "person": "Diego Soto",
+      "platform": "x",
+      "nativeId": "1850000000000000001",
+      "url": "https://x.com/demo/status/1850000000000000001",
+      "text": "We're starting a grid-scale storage company. Looking for a technical cofounder who has shipped hardware + software. DMs open.",
+      "postedAt": 1792913600000
+    },
+    {
+      "person": "Diego Soto",
+      "platform": "x",
+      "nativeId": "1850000000000000002",
+      "url": "https://x.com/demo/status/1850000000000000002",
+      "text": "Heading to Lisbon Nov 10-14 for Web Summit. Climate folks, who's around?",
+      "postedAt": 1792740800000
+    },
+    {
+      "person": "Sofi Mendez",
+      "platform": "x",
+      "nativeId": "1850000000000000003",
+      "url": "https://x.com/demo/status/1850000000000000003",
+      "text": "Personal news: I've joined Lowercarbon as a partner. Writing pre-seed checks into energy storage and grid software. Pitch me!",
+      "postedAt": 1792654400000
+    },
+    {
+      "person": "Sofi Mendez",
+      "platform": "x",
+      "nativeId": "1850000000000000004",
+      "url": "https://x.com/demo/status/1850000000000000004",
+      "text": "Lisbon for Web Summit next month. Would love to meet founders working on the grid.",
+      "postedAt": 1792827200000
+    },
+    {
+      "person": "Kenji Watanabe",
+      "platform": "bluesky",
+      "nativeId": "3m2ken1",
+      "url": "https://bsky.app/profile/demo/post/3m2ken1",
+      "text": "after 6 years at figma i'm going independent! taking on product design work for early stage startups, ping me",
+      "postedAt": 1792568000000
+    },
+    {
+      "person": "Priya Nair",
+      "platform": "linkedin",
+      "nativeId": "7390000000000000001",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000001/",
+      "text": "We're hiring a founding product designer at Tessera in NYC. You'd own the whole design system from day one. Intros appreciated!",
+      "postedAt": 1792913600000
+    },
+    {
+      "person": "Tom Becker",
+      "platform": "x",
+      "nativeId": "1850000000000000005",
+      "url": "https://x.com/demo/status/1850000000000000005",
+      "text": "new climbing gym opened two blocks from my place in brooklyn. best day of the month",
+      "postedAt": 1792481600000
+    },
+    {
+      "person": "Tom Becker",
+      "platform": "x",
+      "nativeId": "1850000000000000006",
+      "url": "https://x.com/demo/status/1850000000000000006",
+      "text": "hot take: the best pizza in nyc is in staten island",
+      "postedAt": 1792308800000
+    }
+  ],
+  "snapshots": [
+    {
+      "person": "Ana Rivera",
+      "platform": "linkedin",
+      "headline": "Software Engineer at Plaid",
+      "company": "Plaid",
+      "location": "New York",
+      "takenAt": 1789544000000
+    },
+    {
+      "person": "Ana Rivera",
+      "platform": "linkedin",
+      "headline": "Product Manager at Stripe",
+      "company": "Stripe",
+      "location": "San Francisco",
+      "takenAt": 1792740800000
+    },
+    {
+      "person": "Priya Nair",
+      "platform": "linkedin",
+      "headline": "Staff PM at Google",
+      "company": "Google",
+      "location": "New York",
+      "takenAt": 1787816000000
+    },
+    {
+      "person": "Priya Nair",
+      "platform": "linkedin",
+      "headline": "Co-founder & CEO at Tessera",
+      "company": "Tessera",
+      "location": "New York",
+      "takenAt": 1792136000000
+    }
+  ]
+}

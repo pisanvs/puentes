@@ -1,5 +1,5 @@
 {
-  "name": "puentes-hack",
+  "name": "puentes",
   "version": "0.0.0",
   "type": "module",
   "imports": {
@@ -12,20 +12,70 @@
     "dev": "eve dev",
     "eval": "eve eval",
     "start": "eve start",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "db:push": "drizzle-kit push",
+    "collect": "tsx --env-file-if-exists=.env.local scripts/pipeline.ts --collect-only",
+    "pipeline": "tsx --env-file-if-exists=.env.local scripts/pipeline.ts --collect",
+    "rank": "tsx --env-file-if-exists=.env.local scripts/pipeline.ts",
+    "capture": "tsx --env-file-if-exists=.env.local scripts/capture.ts",
+    "demo": "REPLAY=1 PEOPLE_FILE=people.example.yaml tsx --env-file-if-exists=.env.local scripts/pipeline.ts --collect",
+    "tunnel": "cloudflared tunnel --url http://localhost:2000",
+    "dev:web": "next dev apps/web",
+    "build:web": "next build apps/web",
+    "connect": "tsx --env-file-if-exists=.env.local scripts/connect.ts",
+    "import": "tsx --env-file-if-exists=.env.local scripts/import.ts",
+    "browser": "tsx --env-file-if-exists=.env.local scripts/browserd.ts",
+    "graph": "tsx --env-file-if-exists=.env.local scripts/graph.ts"
   },
   "dependencies": {
+    "@atproto/api": "^0.29.4",
+    "@chat-adapter/state-memory": "^4.43.0",
+    "@kapso/chat-adapter": "^0.1.1",
+    "@libsql/client": "^0.18.0",
+    "@radix-ui/react-use-controllable-state": "^1.2.2",
+    "@shadcn/react": "^0.3.1",
+    "@shikijs/core": "^3.23.0",
+    "@shikijs/engine-javascript": "^3.23.0",
+    "@shikijs/engine-oniguruma": "^3.23.0",
+    "@streamdown/cjk": "^1.0.3",
+    "@streamdown/code": "^1.1.1",
+    "@streamdown/math": "^1.0.2",
+    "@streamdown/mermaid": "^1.0.2",
+    "@tailwindcss/postcss": "^4.3.0",
     "@vercel/connect": "2.5.2",
     "ai": "^7.0.137",
+    "chat": "^4.43.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "drizzle-orm": "^0.45.4",
     "eve": "^0.83.1",
-    "zod": "4.5.4"
+    "lucide-react": "^1.16.0",
+    "motion": "^12.40.0",
+    "nanoid": "^5.1.11",
+    "next": "^16.3.6",
+    "playwright": "^1.64.1",
+    "radix-ui": "^1.4.3",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "shiki": "^3.23.0",
+    "streamdown": "^2.5.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.0",
+    "use-stick-to-bottom": "^1.1.4",
+    "yaml": "^2.9.1",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@types/node": "24.x",
-    "typescript": "7.0.2"
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vercel": "^65.2.0"
   },
   "engines": {
     "node": "24.x"
   }
-
 }

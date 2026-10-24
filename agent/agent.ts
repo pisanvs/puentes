@@ -1,5 +1,6 @@
 import { defineAgent } from "eve";
+import { REASON_MODEL } from "./lib/models";
 
 export default defineAgent({
-  model: "anthropic/claude-sonnet-5.5",
+  model: REASON_MODEL,
 });
