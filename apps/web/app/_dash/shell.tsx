@@ -50,18 +50,24 @@ export function Shell({
         setChatOpen((o) => !o);
       } else if (e.key === "Escape") setChatOpen(false);
     };
+    // The desktop app's global hotkey / menu-bar "Ask bridgr" opens the panel from outside the page.
+    const onOpen = () => {
+      setChatMounted(true);
+      setChatOpen(true);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("bridgr:open-chat", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("bridgr:open-chat", onOpen);
+    };
   }, []);
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[220px_1fr]">
       <aside className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur md:h-dvh md:border-r md:border-b-0">
         <div className="flex items-center justify-between px-4 py-3 md:px-5 md:py-5">
-          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span className="inline-flex size-7 items-center justify-center rounded-lg bg-brand text-sm text-white dark:text-black">
-              b
-            </span>
+          <Link href="/" className="font-semibold tracking-tight">
             bridgr
           </Link>
           <div className="flex items-center gap-1 md:hidden">

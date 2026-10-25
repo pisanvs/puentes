@@ -13,3 +13,8 @@ puentes.db*
 .profile
 .puentes/
 .capture/
+
+# desktop app build outputs
+desktop/out/
+desktop/app/main.cjs
+desktop/build/

@@ -1,0 +1,34 @@
+# bridgr desktop. The app bundle is a thin shell (desktop/app: the bundled Electron main process);
+# the stack it runs — the Next server, eve agent, browser daemon, scrape jobs, SQLite — lives in the
+# checkout recorded in bridgr.json at package time. Build with `npm run desktop:pack`.
+appId: app.bridgr.desktop
+productName: bridgr
+electronVersion: 45.0.0
+npmRebuild: false
+directories:
+  app: desktop/app
+  output: desktop/out
+  buildResources: desktop/build
+# The shell is one bundled file. Without this, finding no deps in desktop/app makes electron-builder
+# fall back to the repo root and copy all of node_modules (~480MB) into the app.
+files:
+  - main.cjs
+  - package.json
+  - "!node_modules/**/*"
+extraResources:
+  - from: desktop/build/bridgr.json
+    to: bridgr.json
+  - from: desktop/build/trayTemplate.png
+    to: trayTemplate.png
+  - from: desktop/build/trayTemplate@2x.png
+    to: trayTemplate@2x.png
+  - from: desktop/build/icon.png
+    to: icon.png
+mac:
+  icon: desktop/build/icon.icns
+  category: public.app-category.productivity
+  target:
+    - dir
+  identity: null # unsigned: built and run on this machine
+  extendInfo:
+    LSUIElement: false

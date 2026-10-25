@@ -25,7 +25,10 @@
     "connect": "tsx --env-file-if-exists=.env.local scripts/connect.ts",
     "import": "tsx --env-file-if-exists=.env.local scripts/import.ts",
     "browser": "tsx --env-file-if-exists=.env.local scripts/browserd.ts",
-    "graph": "tsx --env-file-if-exists=.env.local scripts/graph.ts"
+    "graph": "tsx --env-file-if-exists=.env.local scripts/graph.ts",
+    "desktop:build": "esbuild desktop/main.ts --bundle --platform=node --format=cjs --external:electron --target=node22 --outfile=desktop/app/main.cjs && tsx desktop/prepare.ts",
+    "desktop": "npm run desktop:build && electron desktop/app/main.cjs",
+    "desktop:pack": "npm run desktop:build && electron-builder --mac"
   },
   "dependencies": {
     "@atproto/api": "^0.29.4",
@@ -71,11 +74,16 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.11",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vercel": "^65.2.0"
   },
   "engines": {
     "node": "24.x"
+  },
+  "allowScripts": {
+    "electron@45.0.0": true
   }
 }
