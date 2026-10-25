@@ -4,6 +4,7 @@ import { and, gt, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "../db/client";
 import { ownerCard } from "../me";
+import { knownPairs } from "../mutuals";
 import { REASON_MODEL } from "../models";
 import { listWatched } from "../topics";
 import { DAY } from "../util";
@@ -143,9 +144,8 @@ export async function rankMatches() {
   const since = Date.now() - LOOKBACK;
   const recent = await db.select().from(schema.events).where(gt(schema.events.occurredAt, since));
   const names = new Map((await db.select().from(schema.people)).map((p) => [p.id, p.name]));
-  const done = new Set(
-    (await db.select().from(schema.matches)).map((m) => `${m.personA}:${m.personB}`),
-  );
+  // Skip pairs already handled, and pairs who already know each other (a resolved mutual on a profile).
+  const done = new Set([...(await db.select().from(schema.matches)).map((m) => `${m.personA}:${m.personB}`), ...(await knownPairs())]);
 
   // entity -> people who mentioned it
   const index = new Map<string, Set<number>>();

@@ -38,6 +38,8 @@ export const identities = sqliteTable(
     followers: integer("followers"),
     mutual: integer("mutual", { mode: "boolean" }),
     importedAt: integer("imported_at"),
+    // People you both know, as counted on their profile ("+74 other mutual connections").
+    mutualsTotal: integer("mutuals_total"),
   },
   (t) => [uniqueIndex("identities_platform_handle").on(t.platform, t.handle)],
 );
@@ -116,6 +118,24 @@ export const owner = sqliteTable("owner", {
   facts: text("facts_json", { mode: "json" }).$type<string[]>().notNull().default([]), // learned in conversation
   updatedAt: integer("updated_at").notNull().$defaultFn(now),
 });
+
+/**
+ * People you and someone both know, exactly as their profile surfaces them ("Víctor, Javier and 74
+ * other mutual connections", "Followed by a, b + 3 more"). Never crawled beyond what the profile
+ * shows. `viaPersonId` links the name to someone in your network when it resolves unambiguously.
+ */
+export const mutuals = sqliteTable(
+  "mutuals",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    personId: integer("person_id").notNull().references(() => people.id),
+    platform: text("platform", { enum: ["bluesky", "x", "linkedin", "instagram"] }).notNull(),
+    label: text("label").notNull(), // handle (X/Instagram) or the name as shown (LinkedIn shows first names)
+    viaPersonId: integer("via_person_id").references(() => people.id),
+    observedAt: integer("observed_at").notNull().$defaultFn(now),
+  },
+  (t) => [uniqueIndex("mutuals_person_platform_label").on(t.personId, t.platform, t.label)],
+);
 
 /** Why we think someone is where the owner is: a recent post that puts them there, or they live there. */
 export type NearbyEvidence = { kind: "here_now" | "based_here"; detail: string; at?: number; eventId?: number };

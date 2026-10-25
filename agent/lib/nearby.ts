@@ -97,7 +97,9 @@ export async function computeNearby() {
   );
   const cards = await authorCards(maybe.map((e) => e.personId));
   const window = here.from || here.to ? `between ${here.from ?? "now"} and ${here.to ?? "now"}` : "this week";
-  const question = `The author is physically in or around ${label} (its metro area counts) ${window}. Today is ${today}.`;
+  // Ask about the post, not the person: where they live is separate evidence ("lives here"), and the
+  // author card is only there to read the post (e.g. that "Replit's house" is in SF).
+  const question = `The post itself shows the author was physically in or around ${label} (its metro area counts) ${window} — attending, visiting or posting from there. Where the author usually lives does not count. Today is ${today}.`;
   const probs = jevAvailable()
     ? await pMap(maybe, 5, (e) =>
         jevDecide(

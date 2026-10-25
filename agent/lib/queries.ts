@@ -1,6 +1,7 @@
 import { aliasedTable, and, desc, eq, inArray, like, lte, or, sql } from "drizzle-orm";
 import { db, schema } from "./db/client";
 import { personGraph, sharedWith } from "./graph/query";
+import { mutualsFor } from "./mutuals";
 import { DAY } from "./util";
 import { isInnerCircle, rawForNorm } from "./warmth-curve";
 
@@ -153,6 +154,13 @@ async function personDetail(p: Person) {
     tracked: p.tracked,
     priorityReason: p.priorityReason,
     openNudges: open,
+    // People you both know, as their profiles show it — useful for "who could introduce us" and context.
+    inCommon: (await mutualsFor(p.id)).map((m) => ({
+      platform: m.platform,
+      total: m.total,
+      followsYou: m.followsYou,
+      named: m.shown.map((s) => s.name ?? s.label),
+    })),
   };
 }
 
@@ -263,6 +271,7 @@ export async function getPersonDossier(id: number) {
       summary: (o.payload as { summary?: string } | null)?.summary ?? null,
     })),
     counts: { posts: pc[0].n, events: ec[0].n, observations: oc[0].n, identities: ids.length },
+    inCommon: await mutualsFor(id),
   };
 }
 

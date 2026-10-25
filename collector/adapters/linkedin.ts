@@ -1,7 +1,7 @@
 import type { BrowserContext, Page } from "playwright";
 import { humanScroll, jitter } from "../browser";
 import { captureJson, type Captured, walk } from "../net";
-import type { Collected, RawPost, Snapshot } from "../types";
+import type { Collected, Mutuals, RawPost, Snapshot } from "../types";
 
 // Everything here is read from LinkedIn's voyager API responses (normalized JSON with an
 // `included` array of typed entities). Parsers match entity shapes, not query ids, which churn.
@@ -78,8 +78,35 @@ function parsePosts(bodies: Captured[], slug: string): RawPost[] {
 }
 
 async function load(page: Page, url: string) {
-  await page.goto(url, { waitUntil: "domcontentloaded" });
+  const res = await page.goto(url, { waitUntil: "domcontentloaded" });
   await jitter(2500, 4500);
+  return res;
+}
+
+const decode = (s: string) =>
+  s
+    .replace(/&amp;/g, "&")
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim();
+
+/**
+ * The "Víctor, Javier and 74 other mutual connections" line on a profile. LinkedIn now server-renders
+ * the profile top card into the page HTML (no voyager call fires for it), so we read it from the
+ * document response — anchored on the line's `connectionOf=` search link, not on hashed CSS classes.
+ * Only what the card shows: the named people (first names) plus its count. We never open the list.
+ */
+export function parseLinkedInMutuals(html: string): Mutuals | undefined {
+  for (const m of html.matchAll(/<a\b[^>]*connectionOf=[^>]*>([\s\S]{0,1200}?)<\/a>/gi)) {
+    const inner = m[1];
+    if (!/mutual connection/i.test(inner)) continue;
+    const names = [...inner.matchAll(/<strong[^>]*>([^<]+)<\/strong>/gi)].map((n) => decode(n[1])).filter(Boolean);
+    const others = Number(/([\d,]+)\s+other mutual connection/i.exec(inner)?.[1]?.replace(/,/g, "") ?? 0);
+    return { names, total: names.length + others };
+  }
+  return undefined;
 }
 
 export async function collectLinkedIn(
@@ -91,7 +118,8 @@ export async function collectLinkedIn(
   const page = await ctx.newPage();
   const cap = captureJson(page, VOYAGER, `li-${slug}`);
   try {
-    await load(page, `https://www.linkedin.com/in/${slug}/`);
+    const profileRes = await load(page, `https://www.linkedin.com/in/${slug}/`);
+    const mutuals = parseLinkedInMutuals((await profileRes?.text().catch(() => "")) ?? "");
     await humanScroll(page, 2); // the profile card + location load lazily; a scroll coaxes the query
     await cap.settle();
     const snapshot = parseProfile(cap.bodies, slug);
@@ -104,7 +132,7 @@ export async function collectLinkedIn(
       await cap.settle();
       posts = parsePosts(cap.bodies, slug).filter((p) => p.postedAt >= since);
     }
-    return { posts, snapshot };
+    return { posts, snapshot, mutuals };
   } finally {
     await page.close();
   }

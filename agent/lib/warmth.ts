@@ -16,6 +16,7 @@ type Signals = {
   platforms: number;
   closeness: number; // rarity-weighted shared-entity mass with your inner circle
   engagements: number; // times you've engaged with them (feature 2)
+  inCommon: number; // people you both know, as their profile counts them
 };
 
 export function scoreWarmth(s: Signals): { warmth: number; reason: string } {
@@ -30,6 +31,8 @@ export function scoreWarmth(s: Signals): { warmth: number; reason: string } {
   if (s.platforms > 1) parts.push({ label: `connected on ${s.platforms} platforms`, pts: 12 * (s.platforms - 1) });
   if (s.closeness > 0) parts.push({ label: "shares your circles", pts: Math.min(20, s.closeness * 20) });
   if (s.engagements > 0) parts.push({ label: `you engage with them (${s.engagements})`, pts: Math.min(18, s.engagements * 6) });
+  // Log-scaled and capped: 5 in common already means you're in the same circle; 500 isn't 100× closer.
+  if (s.inCommon > 0) parts.push({ label: `${s.inCommon} people in common`, pts: Math.min(12, 3 * Math.log2(1 + s.inCommon)) });
 
   // Raw is uncapped and accumulates linearly; the sigmoid (warmth-curve.ts) squashes it for display.
   const warmth = parts.reduce((a, p) => a + p.pts, 0);
@@ -51,7 +54,12 @@ export async function recomputeWarmth(progress: (m: string) => void = () => {}) 
 
   // Pre-aggregate the signals in a few queries rather than per-person round-trips.
   const ids2 = await db
-    .select({ personId: identities.personId, platforms: sql<number>`count(distinct ${identities.platform})`, anyMutual: sql<number>`max(${identities.mutual})` })
+    .select({
+      personId: identities.personId,
+      platforms: sql<number>`count(distinct ${identities.platform})`,
+      anyMutual: sql<number>`max(${identities.mutual})`,
+      inCommon: sql<number>`max(coalesce(${identities.mutualsTotal}, 0))`,
+    })
     .from(identities)
     .where(inArray(identities.personId, ids))
     .groupBy(identities.personId);
@@ -90,6 +98,7 @@ export async function recomputeWarmth(progress: (m: string) => void = () => {}) 
       platforms: agg?.platforms ?? 1,
       closeness: (closeMap.get(p.id) ?? 0) / maxClose,
       engagements: engageMap.get(p.id ?? 0) ?? 0,
+      inCommon: agg?.inCommon ?? 0,
     });
     // Manual love taps add on top of the measured score (uncapped raw) and survive recompute.
     const boost = p.warmthBoost ?? 0;

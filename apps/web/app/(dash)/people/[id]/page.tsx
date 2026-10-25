@@ -109,6 +109,42 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </Section>
       )}
 
+      {/* Who you both know — only what their profiles show ("Víctor, Javier and 74 others"), never crawled. */}
+      {p.inCommon.length > 0 && (
+        <Section title="In common">
+          <div className="space-y-2">
+            {p.inCommon.map((m) => (
+              <div key={m.platform} className="flex flex-wrap items-center gap-1.5 rounded-xl border bg-card px-3 py-2 text-sm">
+                <span className="font-medium">{platformLabel(m.platform)}</span>
+                {m.total ? (
+                  <span className="text-muted-foreground">
+                    · {m.total} {m.total === 1 ? "person" : "people"} you both know
+                  </span>
+                ) : null}
+                {m.followsYou && <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs text-brand">follows you</span>}
+                {m.shown.length > 0 && (
+                  <span className="flex flex-wrap items-center gap-1">
+                    {m.shown.map((s) =>
+                      s.personId ? (
+                        <Link key={s.label} href={`/people/${s.personId}`} className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs hover:bg-muted">
+                          <Avatar name={s.name ?? s.label} size="sm" className="size-4 text-[8px] ring-0" />
+                          {s.name ?? s.label}
+                        </Link>
+                      ) : (
+                        <span key={s.label} className="rounded-full border border-dashed px-1.5 py-0.5 text-xs text-muted-foreground">
+                          {s.label}
+                        </span>
+                      ),
+                    )}
+                    {m.total && m.total > m.shown.length && <span className="text-xs text-muted-foreground">+{m.total - m.shown.length} more</span>}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {/* What the graph knows: entities + what they're asking for / offering. */}
       {(hasGraph(p.graph) || p.asks.length > 0 || p.offers.length > 0) && (
         <Section title="What we know">

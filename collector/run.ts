@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { BrowserContext } from "playwright";
 import { db, schema } from "../agent/lib/db/client";
 import { DAY } from "../agent/lib/util";
+import { saveMutuals } from "../agent/lib/mutuals";
 import { identitiesFor } from "../agent/lib/people";
 import { collectBluesky } from "./adapters/bluesky";
 import { collectInstagram } from "./adapters/instagram";
@@ -88,6 +89,7 @@ export async function collect(platforms = ALL_PLATFORMS, progress: (m: string) =
 
         s.newPosts += await savePosts(id.personId, platform, result.posts);
         if (result.snapshot) await saveSnapshot(id.personId, platform, result.snapshot);
+        if (result.mutuals) await saveMutuals(id.personId, platform, result.mutuals);
         progress(`[${platform}] ${id.name}: ${result.posts.length} posts`);
       } catch (err) {
         s.errors++;

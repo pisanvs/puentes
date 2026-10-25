@@ -3,7 +3,7 @@ import type { BrowserContext, Page } from "playwright";
 import { jitter } from "../browser";
 import { captureJson, walk } from "../net";
 import { IG_APP_ID } from "../session";
-import type { Collected, RawPost, Snapshot } from "../types";
+import type { Collected, Mutuals, RawPost, Snapshot } from "../types";
 
 // Everything here reads Instagram's private web API (/api/v1/) JSON, never the rendered DOM.
 // Those endpoints need the x-ig-app-id header the web client sends on every request; we mirror it
@@ -63,6 +63,20 @@ function parseSnapshot(profile: any): Snapshot {
 }
 
 /**
+ * "Followed by a, b + 12 more" from the web_profile_info we already fetch: the few usernames the
+ * profile shows plus its count, and whether they follow you. Nothing extra is requested.
+ */
+export function parseInstagramMutuals(profile: any): Mutuals | undefined {
+  const user = profile?.data?.user ?? profile?.user ?? profile;
+  const edge = user?.edge_mutual_followed_by;
+  const handles: string[] = (edge?.edges ?? []).map((e: any) => e?.node?.username).filter((u: unknown): u is string => typeof u === "string");
+  const total = typeof edge?.count === "number" ? edge.count : handles.length || undefined;
+  const followsYou = typeof user?.follows_viewer === "boolean" ? user.follows_viewer : undefined;
+  if (!handles.length && total === undefined && followsYou === undefined) return undefined;
+  return { handles, total, followsYou };
+}
+
+/**
  * Profile snapshot + recent feed posts/reels for one tracked account.
  * `opts.posts` toggles the (slower) media pagination; `opts.watchStories` — or IG_WATCH_STORIES=1 —
  * additionally pulls the person's CURRENT stories. See collectInstagramStories for the privacy caveat.
@@ -81,6 +95,7 @@ export async function collectInstagram(
 
     const profile = await igGet(page, `/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`);
     const snapshot = parseSnapshot(profile);
+    const mutuals = parseInstagramMutuals(profile);
     const userId: string | undefined = profile?.data?.user?.id;
 
     const posts: RawPost[] = [];
@@ -105,7 +120,7 @@ export async function collectInstagram(
       if (userId) posts.push(...(await collectInstagramStories(ctx, username, userId, { confirm: true })));
     }
 
-    return { posts, snapshot };
+    return { posts, snapshot, mutuals };
   } finally {
     await page.close();
   }
