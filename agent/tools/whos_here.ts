@@ -18,7 +18,7 @@ export default defineTool({
         name: p.name,
         why: p.reason,
         draft: p.draft,
-        evidence: p.evidence.map((e) => (e.kind === "here_now" ? `seen here ${e.at}: ${e.detail}` : e.detail)),
+        evidence: p.evidence.map((e) => (e.kind === "you_said" ? `owner said: ${e.detail}` : e.kind === "here_now" ? `seen here ${e.at}: ${e.detail}` : e.detail)),
       })),
     };
   },

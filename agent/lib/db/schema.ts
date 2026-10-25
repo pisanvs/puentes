@@ -138,7 +138,7 @@ export const mutuals = sqliteTable(
 );
 
 /** Why we think someone is where the owner is: a recent post that puts them there, or they live there. */
-export type NearbyEvidence = { kind: "here_now" | "based_here"; detail: string; at?: number; eventId?: number };
+export type NearbyEvidence = { kind: "here_now" | "you_said" | "based_here"; detail: string; at?: number; eventId?: number };
 
 /** "Who's here now": people in the owner's network who are in the city the owner is in (or visiting). */
 export const nearby = sqliteTable(

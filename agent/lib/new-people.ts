@@ -100,7 +100,7 @@ export async function metPlaces(limit = 12): Promise<string[]> {
  * Answer the "did you meet them?" prompt. Meeting IRL warms them up, leaves a note, and logs a
  * contact observation (which also seeds the warmth decay curve). `where` records where you met.
  */
-export async function answerMet(personId: number, answer: Answer, where?: string) {
+export async function answerMet(personId: number, answer: Answer, where?: string, opts: { note?: boolean } = {}) {
   const cache = read();
   cache.answered[personId] = answer;
   write(cache);
@@ -114,7 +114,8 @@ export async function answerMet(personId: number, answer: Answer, where?: string
         .set({ warmthBoost: sql`${people.warmthBoost} + ${bump}`, warmth: sql`coalesce(${people.warmth},0) + ${bump}`, tracked: true })
         .where(eq(people.id, personId));
       const place = where?.trim();
-      await addNote(p.name, place ? `Met in person at ${place}` : "Met in person").catch(() => {});
+      // Skip when the meeting came from a note — the note itself already says it.
+      if (opts.note !== false) await addNote(p.name, place ? `Met in person at ${place}` : "Met in person").catch(() => {});
       await db.insert(observations).values({ kind: "contact_logged", personId, source: "owner", occurredAt: Date.now(), payload: { met: true, place: place ?? null } });
     }
   }

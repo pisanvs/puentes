@@ -19,6 +19,8 @@ import { DAY, pMap } from "./util";
 const { people, events, posts, identities, snapshots, edges, entities, nearby, objectives } = schema;
 const EVENT_WINDOW = 14 * DAY;
 const MIN_SCORE = 5;
+// "Seen here" is a strong claim shown as a chip — only when jev is fairly sure the post places them here.
+const HERE_THRESHOLD = 0.7;
 
 // Metro aliases so "sf" matches "San Francisco", "Bay Area", "Palo Alto"… Matched as whole words.
 const METROS: string[][] = [
@@ -92,8 +94,14 @@ export async function computeNearby() {
     .from(events)
     .leftJoin(posts, eq(posts.id, events.postId))
     .where(gt(events.occurredAt, Date.now() - EVENT_WINDOW));
+  // What the owner told us directly (a note, the day dump — events with no post behind them) is first-
+  // hand: if it puts someone here, take it as is instead of asking jev to infer it.
+  const ownerSaid = recent.filter((e) => e.text == null && (e.entities.places.some((p) => mentions(p, aliases)) || mentions(e.summary, aliases)));
+  for (const e of ownerSaid) add(e.personId, { kind: "you_said", detail: e.summary, at: e.occurredAt, eventId: e.id });
   const maybe = recent.filter(
-    (e) => e.category === "location" || e.type === "travel" || e.type === "event" || e.entities.places.some((p) => mentions(p, aliases)) || mentions(e.summary, aliases) || mentions(e.text, aliases),
+    (e) =>
+      e.text != null &&
+      (e.category === "location" || e.type === "travel" || e.type === "event" || e.entities.places.some((p) => mentions(p, aliases)) || mentions(e.summary, aliases) || mentions(e.text, aliases)),
   );
   const cards = await authorCards(maybe.map((e) => e.personId));
   const window = here.from || here.to ? `between ${here.from ?? "now"} and ${here.to ?? "now"}` : "this week";
@@ -111,7 +119,7 @@ export async function computeNearby() {
       )
     : maybe.map((e) => ({ here: e.entities.places.some((p) => mentions(p, aliases)) || mentions(e.summary, aliases) ? 1 : 0 }));
   maybe.forEach((e, i) => {
-    if ((probs[i].here ?? 0) >= 0.5) add(e.personId, { kind: "here_now", detail: e.summary, at: e.occurredAt, eventId: e.id });
+    if ((probs[i].here ?? 0) >= HERE_THRESHOLD) add(e.personId, { kind: "here_now", detail: e.summary, at: e.occurredAt, eventId: e.id });
   });
 
   // 2. People who live here: profile location, bio, or a based_in edge in the graph.
@@ -146,15 +154,17 @@ export async function computeNearby() {
     listWatched(),
     voiceGuide(),
   ]);
+  // You told us > a post puts them here > they live here.
+  const presence = (id: number) => Math.max(...evidence.get(id)!.map((e) => (e.kind === "you_said" ? 2 : e.kind === "here_now" ? 1 : 0)));
   const candidates = ppl
     // People actually seen here first, then the inner circle, then warmth.
-    .sort((a, b) => Number(evidence.get(b.id)!.some((e) => e.kind === "here_now")) - Number(evidence.get(a.id)!.some((e) => e.kind === "here_now")) || Number(b.tracked) - Number(a.tracked) || (b.warmth ?? 0) - (a.warmth ?? 0))
+    .sort((a, b) => presence(b.id) - presence(a.id) || Number(b.tracked) - Number(a.tracked) || (b.warmth ?? 0) - (a.warmth ?? 0))
     .slice(0, 30);
 
   const { output } = await generateText({
     model: REASON_MODEL,
     output: Output.object({ schema: verdicts }),
-    system: `The owner is ${here.traveling ? "visiting" : "at home in"} ${label}${here.to ? ` until ${here.to}` : ""}. From people in their own network with evidence of being in ${label}, pick who's worth meeting in person while there, given who the owner is, their objectives and the topics they watch. Favor people seen there recently over people who merely live there, and real overlap over generic ones. Never invent evidence. The owner's notes are dated by when they were logged, not when things happened — never claim when the owner last saw someone ("great seeing you today") unless the evidence says so.\n\nWho the owner is: ${reader || "(not filled in)"}\nObjectives: ${goals.map((g) => g.text).join(" | ") || "(none)"}\nWatched topics: ${topics.map((t) => t.name).join(", ") || "(none)"}\n\nOwner's voice:\n${voice}`,
+    system: `The owner is ${here.traveling ? "visiting" : "at home in"} ${label}${here.to ? ` until ${here.to}` : ""}. From people in their own network with evidence of being in ${label}, pick who's worth meeting in person while there, given who the owner is, their objectives and the topics they watch. Evidence kinds: you_said = the owner told you directly they're there (strongest — trust it); here_now = a recent post places them there; based_here = they live there. Favor people present now over people who merely live there, and real overlap over generic ones. Never invent evidence. The owner's notes are dated by when they were logged, not when things happened — never claim when the owner last saw someone ("great seeing you today") unless the evidence says so.\n\nWho the owner is: ${reader || "(not filled in)"}\nObjectives: ${goals.map((g) => g.text).join(" | ") || "(none)"}\nWatched topics: ${topics.map((t) => t.name).join(", ") || "(none)"}\n\nOwner's voice:\n${voice}`,
     prompt: JSON.stringify(
       candidates.map((p) => ({
         personId: p.id,

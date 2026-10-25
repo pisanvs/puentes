@@ -73,6 +73,7 @@ function NearbyRow({ match: m, onClose }: { match: Match; onClose: (id: number, 
   const [copied, setCopied] = useState(false);
   const seen = m.evidence.filter((e) => e.kind === "here_now").sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
   const lives = m.evidence.find((e) => e.kind === "based_here");
+  const youSaid = m.evidence.find((e) => e.kind === "you_said");
   const copy = async () => {
     await navigator.clipboard.writeText(m.draft);
     setCopied(true);
@@ -87,12 +88,17 @@ function NearbyRow({ match: m, onClose }: { match: Match; onClose: (id: number, 
           <Link href={`/people/${m.personId}`} className="font-semibold hover:underline">
             {m.name}
           </Link>
-          {seen.length > 0 && (
+          {youSaid && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-soft px-1.5 py-0.5 text-[11px] text-brand">
+              <MessageCircle className="size-3" /> you said they're here
+            </span>
+          )}
+          {seen.length > 0 && !youSaid && (
             <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[11px] text-sky-700 dark:text-sky-300">
               <MapPin className="size-3" /> seen here {relDay(seen[0].at!)}
             </span>
           )}
-          {lives && !seen.length && (
+          {lives && !seen.length && !youSaid && (
             <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
               <Home className="size-3" /> lives here
             </span>

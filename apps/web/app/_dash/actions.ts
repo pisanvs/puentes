@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  addNote,
   getNudges,
   logContact,
   removeObjective,
@@ -20,7 +19,7 @@ import { saveAccount } from "@agent/lib/contacts";
 import { type EntityKind, peopleAt } from "@agent/lib/graph/query";
 import { readJob, spawnJob } from "@agent/lib/jobs";
 import { answerMet } from "@agent/lib/new-people";
-import { parseDump } from "@agent/lib/dump";
+import { noteAndIndex, parseDump } from "@agent/lib/dump";
 import { getOwner, type OwnerPatch, saveOwner, saveOwnerFacts } from "@agent/lib/me";
 import { computeNearby, setNearbyStatus } from "@agent/lib/nearby";
 import { unwatchTopic, watchTopic } from "@agent/lib/topics";
@@ -44,8 +43,9 @@ export async function closeMatch(matchId: number, outcome: "done" | "dismissed")
   refreshAll();
 }
 
+/** Save a note and index it (whereabouts, updates, asks, dates become a real event). */
 export async function saveNote(name: string, note: string) {
-  await addNote(name, note);
+  await noteAndIndex(name, note);
   refreshAll();
 }
 
